@@ -1,0 +1,1082 @@
+Escribir un programa para MSX88 que realice la siguiente tarea. El programa debe mostrar en pantalla el mensaje “INGRESE UN NUMERO DEL 1 AL 9:” y leer un carácter de teclado. Si el carácter ingresado no corresponde al código ascii de un número del 1 al 9, se debe volver a leer un carácter hasta que el usuario ingrese efectivamente un número del 1 al 9. Una vez leído el número, cuando el usuario presiona F10 se debe llamar a una subrutina que realice lo siguiente, de acuerdo al último dígito de su "número mágico". Sea X el último dígito (el de más a la derecha) de su número mágico:
+
+X=0: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través de la PIO) los numeros impares en forma descendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por referencia a través del registro BX. 
+
+
+MI SOLUCION :
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES IMPAR"
+FIN1 DB ?
+
+ORG 1500H
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV DL,31H ; DL = 1 en decimal
+MOV BX,OFFSET CARACTER
+MOV CL,[BX]
+AND CL,1
+JZ THEN ; PAR
+JMP ELSE ; IMPAR
+  THEN: MOV BX,OFFSET MSJ1
+  MOV AL,OFFSET FIN1 - OFFSET MSJ1
+  INT 7
+  JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+  MOV AL,[BX]
+  LOOP2:OUT PB,AL
+  
+  PUSH AX;--------------
+  ;--PULSO STROBE--
+  ;Mando strobe en 1
+  IN AL,PA
+  OR AL,2
+  OUT PA,AL
+  
+  ;Mando Strobe en 0
+  IN AL,PA
+  AND AL,0FDH
+  OUT PA,AL
+  
+  POP AX;------------
+  SUB AL,2
+  CMP AL,DL ; mientras no llegue a imprimir antes del 1, osea -1 (numbers impares)
+  ;Mientras AL no llegue a -1
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  
+  MOV AL,9
+  OUT INT_0,AL
+STI
+;Configuracion para la impresora por PIO
+;1.Configurar PA a partir de CA
+MOV AL,11111101b
+OUT CA,AL
+
+;2Configurar PB a partir de CB
+MOV AL,0
+OUT CB,AL
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+
+-----------------------------------
+
+
+X=1: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través de la PIO) los numeros pares en forma descendente desde el numero ingresado hasta el “0”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 2 0”. La rutina recibe el numero ingresado por referencia a través del registro BX.
+
+
+-------------MI SOLUCION------------------
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+
+ORG 1500H
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV DL,30H ; DL = 0 en decimal  // MODIFICACION
+MOV BX,OFFSET CARACTER
+MOV CL,[BX]
+AND CL,1
+JZ ELSE ; PAR  // MODIFICACION DEL THEN X EL ELSE
+JMP THEN ; IMPAR  // MODIFICACION DEL ELSE X EL THEN
+  THEN: MOV BX,OFFSET MSJ1
+  MOV AL,OFFSET FIN1 - OFFSET MSJ1
+  INT 7
+  JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+  MOV AL,[BX]
+  LOOP2:OUT PB,AL
+  
+  PUSH AX;--------------
+  ;--PULSO STROBE--
+  ;Mando strobe en 1
+  IN AL,PA
+  OR AL,2
+  OUT PA,AL
+  
+  ;Mando Strobe en 0
+  IN AL,PA
+  AND AL,0FDH
+  OUT PA,AL
+  
+  POP AX;------------
+  SUB AL,2
+  CMP AL,DL ; hasta que sea cero(lo proceso) sigo loopeando
+  ;Mientras AL no sea menor a 0
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  
+  MOV AL,9
+  OUT INT_0,AL
+STI
+;Configuracion para la impresora por PIO
+;1.Configurar PA a partir de CA
+MOV AL,11111101b
+OUT CA,AL
+
+;2Configurar PB a partir de CB
+MOV AL,0
+OUT CB,AL
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+-------------------------------------------------
+X=2: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros impares en forma descendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por valor a través del registro DL. 
+
+------MI SOLUCION------
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES IMPAR"
+FIN1 DB ?
+
+ORG 1500H
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,30H ; CL = 0 en decimal  
+MOV BX,OFFSET CARACTER
+MOV DL,[BX]
+AND DL,1
+JZ THEN ; PAR  
+JMP ELSE ; IMPAR 
+  THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+;Configuracion de la impresora a traves del HS x consulta de estado (Polling)
+;1.Configurar el BIT de interrupciones
+  IN AL,HAND_ESTADO
+  AND AL,07FH
+  OUT HAND_ESTADO,AL
+
+  ;2.Consultaremos constantemente si la impresora esta libre (BIT BUSY = 0)
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,[BX]
+  LOOP2: OUT HAND_DATO,AL
+  
+  SUB AL,2
+  CMP AL,CL ; hasta que sea cero(lo proceso) sigo loopeando
+  ;Mientras AL no sea menor a 0
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+-------------------------------------------------
+X=3: o X=8 Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros pares en forma descendente desde el numero ingresado hasta el “0”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 2 0”. La rutina recibe el numero ingresado por valor a través del registro DL.
+
+-----MI SOLUCION-----
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+
+ORG 1500H
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,30H ; CL = 0 en decimal  
+MOV BX,OFFSET CARACTER
+MOV DL,[BX]
+AND DL,1
+JZ ELSE ; PAR  
+JMP THEN ; IMPAR 
+  THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+;Configuracion de la impresora a traves del HS x consulta de estado (Polling)
+;1.Configurar el BIT de interrupciones
+  IN AL,HAND_ESTADO
+  AND AL,07FH
+  OUT HAND_ESTADO,AL
+
+  ;2.Consultaremos constantemente si la impresora esta libre (BIT BUSY = 0)
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,[BX]
+  LOOP2: OUT HAND_DATO,AL
+  
+  SUB AL,2
+  CMP AL,CL ; hasta que sea cero(lo proceso) sigo loopeando
+  ;Mientras AL no sea menor a 0
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+
+
+X=4: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través de la PIO) los numeros impares en forma ascendente desde el numero ingresado hasta el “9”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 7 9”. La rutina recibe el numero ingresado por referencia a través del registro BX. 
+
+X=5 o X=9: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través de la PIO) los numeros pares en forma ascendente desde el numero ingresado hasta el “8”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 6 8”. La rutina recibe el numero ingresado por referencia a través del registro BX.
+
+--MI SOLUCION--
+
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+
+ORG 1500H
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,38H ; CL = 8 en decimal  
+MOV BX,OFFSET CARACTER
+MOV DL,[BX]
+AND DL,1
+JZ ELSE ; PAR  
+JMP THEN ; IMPAR 
+  THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+  ;Configuracion de la impresora a traves del PIO
+  ;1.Configuramos PA a partir de CA
+  MOV AL,11111101b
+  OUT CA,AL
+  
+  ;2.Configuramos PB a partir de CB
+  MOV AL,0
+  OUT CB,AL
+  
+  ;Consultaremos constantemente si esta libre la impresora(BIT BUSY = 0)
+  POLL: IN AL,PA
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,[BX]
+  LOOP2: OUT PB,AL
+  
+  PUSH AX;--------->
+  ;PULSO STROBE--
+  ;Mandamos el strobe a 1
+  IN AL,PA
+  OR AL,2
+  OUT PA,AL
+  
+  ;Mandamos el strobe a 0
+  IN AL,PA
+  AND AL,0FDH
+  OUT PA, AL
+  POP AX;----------->
+  
+  ADD AL,2
+  CMP CL,AL ; hasta que no sea OCHO(lo proceso) sigo loopeando
+  ;Mientras AL no sea mayor a CL (8),sigo loopeando
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+
+
+X=6: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros impares en forma ascendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por valor a través del registro DH. 
+
+--MI SOLUCION 
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ  DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN  DB ?
+MSJ1 DB "EL NUMERO NO ES IMPAR"
+FIN1 DB ?
+CARACTER DB ?
+
+;IMPRIME MSJ 
+ORG 4000H
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+;subrutina de Interrupcion
+ORG 3000H
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,31H ; CL = 1 en decimal  
+MOV BX,OFFSET CARACTER
+MOV DH,[BX]
+AND DH,1
+JZ THEN ; PAR  
+JMP ELSE ; IMPAR 
+  THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  
+  ;Configuracion de la impresora a traves del HS x consulta de estado
+  ;1.Configuramos el BIT de interrupciones (41H ESTADO)
+  IN AL,HAND_ESTADO
+  AND AL,07FH
+  OUT HAND_ESTADO,AL
+ 
+  ;2.Consultaremos constantemente si esta libre la impresora(BIT BUSY = 0)
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,[BX]
+LOOP2: OUT HAND_DATO,AL
+  
+  SUB AL,2
+  CMP AL,CL ; hasta que sea 1 (lo proceso) sigo loopeando
+  ;Mientras AL no sea menor a CL (1),sigo loopeando
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 3500H
+ESNUM: MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+---------------------------------------------------------------------
+X=7: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros pares en forma ascendente desde el numero ingresado hasta el “8”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 6 8”. La rutina recibe el numero ingresado por valor a través del registro DH.
+
+
+--MI SOLUCION--
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ  DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN  DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+CARACTER DB ?
+
+ORG 4000H ; Rutina que imprime mensaje principal
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+ORG 3000H   ;subrutina de Interrupcion
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,38H ; CL = 8 en decimal    ;PODRIA SER DL
+MOV BX,OFFSET CARACTER
+MOV DH,[BX]
+AND DH,1
+;IMPRIMIR_GENERAL: PUSH AX
+;--MOV CL, DH
+;--AND CL, 1
+
+JZ ELSE ; PAR  
+JMP THEN ; IMPAR ; SE NEGARIA ESTA LINEA + EL THEN DE ABAJO
+  THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+;(si el num es impar)envio los nums a la impr de forma descendent
+ELSE: MOV BX,OFFSET CARACTER  ;SE NEGARIA LA LINEA  MOV
+  ;Configuracion de la impresora a traves del HS x consulta de estado
+  ;1.Configuramos el BIT de interrupciones (41H ESTADO)
+  IN AL,HAND_ESTADO
+  AND AL,07FH
+  OUT HAND_ESTADO,AL
+ 
+  ;2.Consultaremos constantemente si esta libre la impresora(BIT BUSY = 0)
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,[BX]  ; [BX] SE REEMPLAZARIA X DH
+LOOP2: OUT HAND_DATO,AL  ; SE NEGARIA EL LOOP2
+  
+  ADD AL(DH),2
+  CMP CL,AL(DH) ; hasta que sea 1 (lo proceso) sigo loopeando ;Y CMP DL,DH
+  ;Mientras AL no sea menor a CL (1),sigo loopeando
+  JNS LOOP2 ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+  ;POP AX
+IRET
+
+ORG 3500H
+ESNUM: MOV AL(DH),0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL(DH),0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;LLAMO a una rutina a analizar el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL(DH),0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;BUCLE (si salio es porque se ingreso un numero del 1 al 9)
+LAZO: JMP LAZO
+INT 0
+END
+
+---------------------------------------------------------------------------
+
+----OTRA SOLUCION------
+
+;  PIC
+EOI EQU 20H
+IMR EQU 21H
+INT_0 EQU 24H
+
+HAND_DATO   EQU 40H
+HAND_ESTADO EQU 41H
+
+ORG 20
+IP_F10 DW SUBRUTINA
+
+ORG 1000H
+MENSAJE DB "INGRESE UN NUMERO DEL 1 AL 9: "
+MENSAJE2 DB "EL NUMERO NO ES PAR"
+NUM DB ?
+
+ORG 3000H
+SUBRUTINA: PUSH AX
+MOV CL, DH
+AND CL, 1
+JZ PAR
+MOV BX, OFFSET MENSAJE2
+MOV AL, OFFSET NUM-OFFSET MENSAJE2
+INT 7
+JMP FIN
+
+PAR: IN AL, HAND_ESTADO
+AND AL, 01111111B
+OUT HAND_ESTADO, AL
+
+POLL: IN AL, HAND_ESTADO
+AND AL, 1
+JNZ POLL ; SI NO DIÓ 0 LA IMPRESORA ESTÁ EN BUSY
+
+MOV AL, DH
+OUT HAND_DATO, AL; LE PASO EL CARÁCTER AL HANDSHAKE
+
+ADD DH, 2
+CMP DH, 39H
+JS POLL; SI NO LLEGUÉ AL FINAL DEL MENSAJE JMP
+
+FIN: MOV AL, 20H
+OUT EOI, AL
+POP AX
+IRET
+
+ORG 2000H
+MOV BX, OFFSET MENSAJE
+MOV AL, OFFSET MENSAJE2-OFFSET MENSAJE
+INT 7
+MOV BX, OFFSET NUM
+INGRESAR: INT 6
+CMP NUM, 30H
+JS INGRESAR
+CMP NUM, 3AH
+JNS INGRESAR
+
+MOV DH, NUM
+
+CLI
+MOV AL, 11111110B
+OUT IMR, AL
+
+MOV AL, 5
+OUT INT_0, AL
+STI
+
+LOOP:JMP LOOP
+
+INT 0
+END
+
+------OTRA SOLUCION(MAS OPTIMIZADA)------------
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+ORG 1000H
+MSJ  DB "INGRESE UN NUMERO DEL 1 AL 9: "
+FIN  DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+CARACTER DB ?
+
+ORG 4000H ; Rutina que imprime mensaje principal
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+ORG 3000H   ;subrutina de Interrupcion
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV DL,38H 
+PUSH AX
+MOV CL, DH
+AND CL, 1
+
+JZ ELSE ; PAR  
+;IMPAR ABAJO 
+MOV BX,OFFSET MSJ1
+MOV AL,OFFSET FIN1 - OFFSET MSJ1
+INT 7
+JMP SALGO
+
+ELSE: NOP
+  ;Configuracion de la impresora a traves del HS x consulta de estado
+  ;1.Configuramos el BIT de interrupciones (41H ESTADO)
+  IN AL,HAND_ESTADO
+  AND AL,07FH
+  OUT HAND_ESTADO,AL
+ 
+  ;2.Consultaremos constantemente si esta libre la impresora(BIT BUSY = 0)
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+ 
+ ;Si la impresora esta libre , le mando el dato directamente
+  MOV AL,DH  ; 
+  OUT HAND_DATO,AL  
+  
+  ADD DH,2
+  CMP DL,DH ; hasta que sea 1 (lo proceso) sigo loopeando ;Y CMP DL,DH
+  ;Mientras AL no sea menor a CL (1),sigo loopeando
+  JNS POLL ; 
+  
+SALGO:MOV AL,20H
+  OUT EOI,AL
+  POP AX
+IRET
+
+ORG 3500H
+ESNUM: MOV DH,0 ; DH = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV DH,0FFH ; DH = 0FFH se trata de un numero
+NONUM: RET
+
+ORG 2000H
+CALL IMPRIMIR_MSJ
+;Guarda el caracter en BX
+LOOP: MOV BX,OFFSET CARACTER
+INT 6
+
+;LLAMO a una rutina a analizar el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP DH,0
+JZ LOOP
+MOV DH,CARACTER
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+LAZO: JMP LAZO
+INT 0
+END
+
+
+----------------------------------------------------------------------------
+CODIGO BASE DEL PARCIAL
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_0 EQU 24H
+
+; HANDSHAKE
+HAND_DATO    EQU 40H
+HAND_ESTADO  EQU 41H
+
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO DEL 1 AL 9"
+FIN DB ?
+MSJ1 DB "EL NUMERO NO ES PAR"
+FIN1 DB ?
+CARACTER DB ?
+
+ORG 3000H   ;subrutina de Interrupcion
+;Analizo si el numero es Par
+IMPRIMIR_GENERAL: MOV CL,38H 
+MOV BX,OFFSET CARACTER (POR REFERENCIA)
+MOV DH,[BX] ; Lo paso a DH por valor
+AND DH,1
+JZ ELSE ; PAR (numero par) 
+JMP THEN ; IMPAR (numero impar)
+THEN: MOV BX,OFFSET MSJ1
+    MOV AL,OFFSET FIN1 - OFFSET MSJ1
+    INT 7
+    JMP SALGO
+ELSE---
+----
+----
+SALGO:MOV AL,20H
+  OUT EOI,AL
+IRET
+
+
+ORG 4000H ; Rutina que imprime mensaje principal
+IMPRIMIR_MSJ: MOV BX,OFFSET MSJ
+  MOV AL,OFFSET FIN - OFFSET MSJ
+  INT 7
+RET
+
+ORG 3500H
+ESNUM: NOP
+  MOV AL,0 ; AL = 0 no se trata de un numero
+  CMP BYTE PTR [BX],31H  ; 31H = numero 1
+  JS NONUM
+  MOV DL,39H  ; DL = 39H (guardo el numero 9)
+  CMP DL,BYTE PTR [BX]
+  JS NONUM
+  MOV AL,0FFH ; AL = 0FFH se trata de un numero
+
+NONUM: RET
+
+ORG 2000H
+LOOP: CALL IMPRIMIR_MSJ
+
+;Guarda el caracter en BX
+MOV BX,OFFSET CARACTER
+INT 6
+
+;analizo el caracter 
+CALL ESNUM
+
+;comparo si salio un numero
+CMP AL,0
+JZ LOOP
+
+;Elijo ID 9
+MOV AX,IMPRIMIR_GENERAL
+MOV BX,36  ; 36 = 9*4
+MOV [BX],AX
+
+CLI
+  MOV AL,11111110b
+  OUT IMR ,AL
+  MOV AL,9
+  OUT INT_0,AL
+STI
+
+;si salio es porque se ingreso un numero del 1 al 9
+INT 0
+END

@@ -1,0 +1,231 @@
+1ER PARCIAL 1ERA FECHA 
+
+Escribir un programa para MSX88 que realice la siguiente tarea. El programa debe mostrar en pantalla el mensaje “INGRESE UN NUMERO DEL 1 AL 9:” y leer un carácter de teclado. Si el carácter ingresado no corresponde al código ascii de un número del 1 al 9, se debe volver a leer un carácter hasta que el usuario ingrese efectivamente un número del 1 al 9. Una vez leído el número, cuando el usuario presiona F10 se debe llamar a una subrutina que realice lo siguiente, de acuerdo al último dígito de su "número mágico". Sea X el último dígito (el de más a la derecha) de su número mágico:
+
+X=0: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través de la PIO) los numeros impares en forma descendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por referencia a través del registro BX. 
+
+RESOLUCION DE X = 0
+
+;pio
+pa equ 30h  ; estado
+pb equ 31h  ; dato
+ca equ 32h  ; (XXXX XX01)
+cb equ 33h  ; 0000 0000
+
+;pic 
+eoi equ 20h
+imr equ 21h
+int_0 equ 24h
+id_int0 equ 10
+
+org 1000h
+valor db ?
+msj db "ingrese un numero del 1 al 9: "
+fin db ?
+msj2 db "el numero no es impar"
+fin2 db  ?
+
+org 3000h
+EsNumero: mov dl, 00h ; dl = 0 (todavia no es un numero)
+          mov dh, 39h ; dh = 9 (39h en hexa)
+          mov cl, [bx]
+          cmp cl,30h ; 30h (en hexa) = 0 
+          js salgo
+          cmp dh,cl
+          js salgo
+          mov dl, 0ffh  ; ahora es un numero
+   salgo: ret
+   
+org 3300h
+NoEsImpar: mov dl,00h
+           mov cl, [bx]
+           and cl,1
+           jz ImparyFin
+           mov dl,0ffh
+ImparyFin: ret
+         
+org 3900h
+poll: in al, pa
+      and al, 1
+      jnz poll
+      ret
+
+org 3700h
+strobe_0: in al, pa
+          and al, 0fdh
+          out pa, al
+          ret
+
+org 3800h
+strobe_1: in al, pa
+          or al, 02h
+          out pa, al
+          ret
+
+org 3600h
+conf_pio: nop
+          ; configuro ca
+          mov al, 01h
+          out ca, al
+          
+          ;configuro cb
+          mov al, 0
+          out cb, al
+          ret
+ORG 4000H
+subf10: nop
+  ;vuelvo a generar la copia de BX    
+  mov bx, offset valor
+  call NoEsImpar   ; Osea el numero es PAR
+  cmp dl, 0ffh
+  jnz then
+  jmp else
+  then: mov bx, offset msj2
+        mov al, offset fin2 - offset msj2
+        int 7
+        jmp termino
+  else: nop
+  
+  ;configuramos el PIO
+  call conf_pio
+  mov bx, offset valor
+  mov cl, valor
+  call strobe_0
+  lazo: call poll
+        mov al, [bx]
+        out pb, al
+        call strobe_1
+        call strobe_0
+        sub cl,2
+        mov [bx],cl
+        cmp cl,30h   ; 30h (en hexa) = 0
+        jns lazo
+        
+  ;pasos de una subrutina x interrupcion
+  termino: mov al, 20h
+           out eoi, al
+           iret
+        
+org 2000h
+  ; configuracion de la interrupcion x f10
+  cli
+  mov al, 0feh  
+  out imr, al  ; 1111 1110
+  mov al, id_int0
+  out int_0, al
+  
+  mov bx,40
+  mov word ptr [bx], subf10
+  sti
+;--------------------------------------------  
+  mov bx, offset msj
+  mov al, offset fin- offset msj
+  int 7
+  loop: mov bx, offset valor
+        int 6
+        call EsNumero
+        cmp dl,0ffh
+        jnz loop
+        
+  megaloop: jmp megaloop ;espero a generar una interrupcion (f10)
+  int 0
+end
+-------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+X=1: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través de la PIO) los numeros pares en forma descendente desde el numero ingresado hasta el “0”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 2 0”. La rutina recibe el numero ingresado por referencia a través del registro BX.
+
+X=2: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros impares en forma descendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por valor a través del registro DL. 
+
+X=3: o X=8 Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros pares en forma descendente desde el numero ingresado hasta el “0”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 2 0”. La rutina recibe el numero ingresado por valor a través del registro DL.
+
+X=4: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través de la PIO) los numeros impares en forma ascendente desde el numero ingresado hasta el “9”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 7 9”. La rutina recibe el numero ingresado por referencia a través del registro BX. 
+
+X=5 o X=9: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través de la PIO) los numeros pares en forma ascendente desde el numero ingresado hasta el “8”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 6 8”. La rutina recibe el numero ingresado por referencia a través del registro BX.
+
+X=6: Si el numero ingresado por el usuario NO es impar, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES IMPAR". Si el numero ingresado por el usuario es impar, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros impares en forma ascendente desde el numero ingresado hasta el “1”. Es decir, si el usuario ingresa “5”, se debe imprimir “5 3 1”. La rutina recibe el numero ingresado por valor a través del registro DH. 
+
+X=7: Si el numero ingresado por el usuario NO es par, la rutina debe imprimir en pantalla el mensaje: "EL NUMERO NO ES PAR". Si el numero ingresado por el usuario es par, la rutina envía a la impresora (a través del HS en modo consulta de estado) los numeros pares en forma ascendente desde el numero ingresado hasta el “8”. Es decir, si el usuario ingresa “4”, se debe imprimir “4 6 8”. La rutina recibe el numero ingresado por valor a través del registro DH.
+
+
+2)
+Se debe responder a una interrupción del TIMER. ¿qué registros del PIC deben modificarse para configurar el PIC y para implementar la subrutina de atención? 
+
+Registros : EOI, INT1, IMR
+
+3)El registro CONT vale 1 y el registro COMP vale también 1. ¿qué sucede un segundo después? *
+
+Rta : CONT aumenta a dos
+
+4)
+Escriba la/las instrucción/instrucciones (pueden ser 1 o 2) necesaria/s para pasar un parámetro a la subrutina POTENCIA en la línea 10. Sea X el PRIMER dígito de su "número mágico" (el de más a la izquierda). En base a X: *
+Sea X el dígito de más de la IZQUIERDA de tu número mágico. Si X=0 o X=4, debés pasar el valor 15 por valor a través del registro CX. Si X=2 o X=7, debés pasar la variable oso por referencia a través del registro BX. Si X=1 o X=5, debés pasar el valor 15 por la pila. Si X=6 o X=9, debés pasar la variable oso por referencia a través de la pila. Si X=3 o X=8, debés pasar los valores 42 y 66 por valor a través de los registros AL y AH, respectivamente. En los casos en que tenés que enviar parámetros por la pila, solo debes enviarlos, no es necesario limpiar la pila luego.
+
+Caso 1:
+mov cx, 15
+
+Caso 2:
+mov bx, offset oso
+
+caso 3:
+mov ax, 15
+push ax
+
+caso 4 :
+mov ax, offset oso
+push ax
+
+caso 5:
+mov al, 42
+mov ah, 66
+
+5) PROGRAMA AL QUE SE DEBEN AGREGAR INSTRUCCIONES (COMPLETADO) : 
+
+eoi equ 20h
+imr equ 21h
+int_0 equ 24h
+
+org 1000h
+ valor db ?
+ msj_inicial db "ingrese un digito del 0 al 9"
+ msj_final db "fin del conteo"
+ msj_fin db ?
+
+org 3500h
+f10: push ax
+  dec valor
+  jnz fin
+  mov al, 0ffh
+  out imr, al
+
+fin: mov al, 20h
+     out eoi, al
+     pop ax
+     iret  
+
+org 120
+ dirf10 dw f10  ;Debe ponerse la dirección de la subrutina f10 en el vector de interrupciones. Para eso se puede usar el valor 3500h o el nombre de la subrutina, f10.
+
+org 2000h
+  mov bx, offset msj_inicial
+  mov al, offset msj_final - offset msj_inicial
+  int 7
+  mov bx , offset valor
+  int 6
+  sub valor, 30h
+
+  cli
+  mov al, 0feh
+  out imr, al
+  mov al, 30   ;Se debe asignar el identificador de interrupción 30 en INT1 ya que la dirección de la subrutina está en el vector de interrupción en la dirección 120.
+  out int_0, al
+  sti
+
+  loop: cmp valor, 0  ; Debe verificarse si el valor ya llegó a 0, con "cmp valor, 0"
+        jnz loop
+
+  mov bx, offset msj_final
+  mov al, offset fin - offset msj_final
+  int 7
+  int 0
+end

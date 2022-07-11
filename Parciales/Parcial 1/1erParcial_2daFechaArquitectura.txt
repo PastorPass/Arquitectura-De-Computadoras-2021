@@ -1,0 +1,220 @@
+PROGRAMA (14 pts). Escribir un programa para MSX88 que realice la siguiente tarea utilizando la configuración de interruptores y luces. Asumir que todos los interruptores se encuentran apagados al comienzo del programa. Inicialmente, el programa principal debe prender todas las luces durante 5 segundos, y pasado este tiempo apagarlas todas. Luego, el programa debe mostrar en pantalla el mensaje “ENCIENDA EL PRIMER INTERRUPTOR PARA COMENZAR”. Cuando el primer interruptor (el de más a la derecha) es encendido, se debe leer un carácter desde teclado con el siguiente mensaje: “ESCRIBA UNA LETRA EN MAYÚSCULA”. El carácter leído debe ser validado, es decir, se debe chequear que efectivamente el usuario ingresa una letra mayúscula (“A”...”Z”). En caso contrario, se debe volver a leer el carácter. Una vez que se ha leído la letra mayúscula desde teclado, se debe llamar a una subrutina que realice lo indicado más abajo (según su número mágico). Al volver de la subrutina, el programa debe detener su ejecución.
+
+Sea X el último número de su número mágico (el de más a la derecha), entonces, si X es:
+
+0 o 1: La subrutina recibe el carácter leído por valor a través de la pila. Si la letra esta entre la “A” y la “F” del alfabeto, la subrutina debe prender las luces 0, 2, 4 y 6. En caso contrario, debe prender las luces 1, 3, 5 y 7. 
+
+PROGRAMA RESUELTO PARA X = 0 ó X= 1
+
+;pic
+eoi equ 20h
+imr equ 21h
+int_1 equ 25h
+id_int1 equ 12
+
+;registros del TIMER
+cont equ 10h
+comp equ 11h
+
+;pio  (luces y llaves)
+pa equ 30h
+pb equ 31h
+ca equ 32h
+cb equ 33h
+
+org 1000h
+msj db "encienda el primer interruptor para comenzar "
+fin db ?
+msj2 db "escriba una letra en mayuscula : "
+fin2 db ?
+letra db ?
+
+org 48
+dir_subtimer dw 3000h
+
+org 3000h
+subTimer: nop
+          ;Apago las luces 
+          mov al, 00000000b
+          out pb, al
+          mov al, 11111111b
+          out cb, al
+          
+          ;imprimo 1er mens
+          mov bx, offset msj
+          mov al, offset fin - offset msj
+          int 7
+          
+          mov al, 20h
+          out eoi, al
+          iret
+
+org 3500h
+siesMay: mov cl, 00h
+         mov dl, 41h ; dl (en hexa) = "A"
+         cmp byte ptr [bx], dl
+         js salgo
+         mov dh, 5ah  ; dh (5ah en hexa) = "Z"
+         cmp dh, byte ptr [bx]
+         js salgo
+         mov cl, 0ffh
+  salgo: ret
+
+org 3800h
+Luces: mov cl, 00h
+       mov bx,sp
+       add bx, 2
+       mov al, [bx]  ; ah = letra leida de la a..z (mayuscula)
+       
+       mov dl, 41h ; dl (en hexa) = "A"
+       cmp al,dl
+       js salir
+       mov dh, 46h ; dh = "F"
+       cmp dh,al
+       js salir
+       mov cl, 0ffh
+       
+     ;Lo del prendido de las luces debe estar en esta subrutina o llamando a otra
+       
+salir: ret
+
+org 2000h
+;Asumo que las luces estan apagadas al comienzo del programa
+
+; Prendo las luces
+mov al, 11111111b
+out pb, al
+mov al, 00000000b
+out cb, al
+
+cli
+mov al, 11111101b
+out imr, al
+
+mov al, id_int1
+out int_1, al
+
+;mov bx, 48
+;mov word ptr [bx], subTimer
+mov al, 0
+out cont, al
+
+mov al, 5
+out comp, al
+sti
+
+;Habilito las llaves
+mov al, 11111111b
+out ca, al
+
+;verificar que solo el 1er interruptor(llave), el de mas a la derecha este "on"
+lazo: in al, pa
+      cmp al, 80h
+      jo lazo
+      
+      ;imprimo 2do mensaje
+      mov bx, offset msj2
+      mov al, offset fin2 - offset msj2
+      int 7
+      
+      ;se lee de teclado un caracter
+      while: mov bx, offset letra
+               int 6
+               call siesMay
+               cmp cl, 0ffh
+               jnz while
+
+;Habilito luces
+mov al, 11111111b
+out pb, al
+
+mov ax, letra
+push ax
+
+;Subrutina que prende las luces bajo un criterio de orden del alfabeto
+;De que letra se cargo y que luces prender
+call Luces
+cmp cl, 0ffh
+
+;las lineas que siguen deben estar en una subrutina(meh es lo mismo)
+jnz PrendoImpares
+jmp PrendoPares
+PrendoImpares: mov al, 01010101b
+               out cb, al
+               jmp final
+PrendoPares: mov al, 10101010b
+             out cb, al
+final: int 0
+end
+
+
+2 o 3: La subrutina recibe el carácter leído por referencia a través de un registro. Si la letra está entre la “G” y la “L” del alfabeto, la subrutina debe prender las luces 0, 1, 2 y 3. En caso contrario, debe prender las luces 4, 5, 6 y 7. 
+
+4 o 5: La subrutina recibe el carácter leído por valor a través de un registro. Si la letra esta entre la “M” y la “P” del alfabeto, la subrutina debe prender las luces 0, 1, 6 y 7. En caso contrario, debe prender las luces 2, 3, 4 y 5. 
+
+6 o 7: La subrutina recibe el carácter leido por referencia a traves de un registro. Si la letra esta entre la “Q” y la “U” del alfabeto, la subrutina debe prender las luces 0, 1, 2 y 7. En caso contrario, debe prender las luces 3, 4, 5 y 6. 
+
+8 o 9: La subrutina recibe el carácter leído por valor a través de la pila. Si la letra esta entre la “V” y la “Z” del alfabeto, la subrutina debe prender las luces 0, 5, 6 y 7. En caso contrario, debe prender las luces 1, 2, 3 y 4. 
+
+1)
+Sea X = los dos dígitos más significativos (de más la izquierda) de su número mágico (en decimal). Asumir que X es el identificador de una interrupción. ¿Cuál sería la dirección en el vector de interrupción correspondiente al identificador X, donde a su vez debería estar la dirección de la subrutina? Responder en decimal. *
+Por ejemplo, si su número mágico es 5384, entonces X=53 es el identificador de la interrupción.
+
+Respuesta = 320
+
+Ejemplo, si X = 53, entonces el identificador es 53 y como cada elemento del vector ocupa 4 bytes, la dirección en el vector es 212 (osea 53 * 4).
+
+2)
+El siguiente programa imprime(en pantalla) todas las letras minúsculas separadas por una coma y un espacio ("a, b, c, d, ...."), pero esperando un segundo entre letra y letra. Completar la instrucción faltante en la LÍNEA 17 para que el programa funcione correctamente: 
+
+programa de este punto (terminado) :
+
+eoi equ 20h
+imr equ 21h
+int_1 equ 25h
+
+;Registros TIMER
+cont equ 10h
+comp equ 11h
+;ascii del caracter siguiente a Z
+char_fin equ 123
+
+org 40
+dir_imp dw imp_car
+
+org 1000h
+caracter db "a, "
+
+org 3000h
+imp_car: mov al, 0
+	        out cont, al ;En la subrutina es necesario reiniciar el CONT a 0 para que se imprima el siguiente carácter un segundo después. La instrucción anterior pone justo al en 0. Por ende la instrucción es
+	        mov bx, offset caracter ; Antes de hacer el INT 7, se pone AL en 3 para imprimir el caracter, la coma y el espacio (linea 18). Pero además debe indicarse desde donde imprimir, por ende la solución es:
+	        mov al,3
+        	int 7
+         inc caracter
+         cmp caracter, char_fin
+         jnz seguir
+         mov al, 0ffh
+         out imr, al
+
+ seguir: mov al, 20h
+         out eoi, al
+         iret
+
+org 2000h
+cli
+mov al, 0fdh
+out imr, al
+mov al, 10  ;Como la dirección de la subrutina de atención se guardó en la dirección 40 del vector de interrupciones, entonces debe configurarse el registro INT1 del PIC con el valor 10 (identificador de interrupción 10), de modo que 10*4 = 40.
+out int_1, al
+mov al, 1
+out comp,al ; Como debe imprimirse cada un segundo, el registro COMP del timer debe valer 1. Como en la línea anterior se pone al en 1, entonces queda:
+mov al, 0
+out cont, al
+sti
+
+loop: cmp caracter,char_fin	 ;Para que el programa principal termine cuando que se finaliza la impresión, debe verificar el valor de CARACTER para saber si paso el valor de la 'z'. Por ende, se compara este valor con CHAR_FIN, que tiene el código ascii del caracter siguiente a 'z'
+	     jnz loop
+int 0
+end
+

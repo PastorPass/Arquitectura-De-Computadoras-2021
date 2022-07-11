@@ -1,0 +1,94 @@
+PARCIAL 2 2DA FECHA 
+
+1) Que instrucciones son necesarias para simular un pop de la pila al registro $t7 ?
+Rta : ld $t7 , 0($sp) y daddi $sp, $sp, 8
+
+2) Si la variable tercer_digito contiene el tercer digito de su nro magico, (si su nm es 4567, tercer_digito_nm tendra el valor 6) ¿ Cual sera el valor del registro $t9 al finalizar el programa?
+
+.data
+tabla1: byte 31, 12, 63, 74, 25, 16, 76, 81
+tabla2: .byte 41, 2, 63, 4, 51, 56, 77, 88
+tabla3: .byte 2 ,32, 43, 25, 82, 61, 74, 12
+tabla4: .byte 49, 10, 8, 53, 83, 23, 17, 44
+tabla5: .byte 19, 94, 33, 7, 11, 12, 84, 90
+tercer_digito: <reemplazar por tercerdigito_nm>
+
+.text
+ld $t6, tercer_digito_nm ($0)
+dsll $t7, $t6, 2
+lbu $t9, tabla1($t7)
+halt
+
+Rta : 76
+
+3) Si su numero magico termina con 0,1 responder : La instruccion DADD r2, r3, r1 se ejecuta sin forwarding
+Al finalizar que etapa del pipeline el resultado de la operacion esta disponible para una instruccion posterior?
+
+Rta : cuando finaliza la etapa de ex (calculo aritmetico)
+
+Si su numero magico termina con 2, 3 responder . La instruccion dsub r2, r3, r1 se ejecuta con forwarding .
+Al finalizar que etapa del pipeline el resultado de la operacion esta disponible para una instruccion posterior?
+
+Si su numero magico... (falta terminar los demas casos)
+
+RESPUESTAS: 
+Si su numero magico termina con 0,1 : Respuesta WB
+Si su numero magico termina con 2,3 : Respuesta EX
+Si su numero magico termina con 4,5 : Respuesta ID
+Si su numero magico termina con 6,7 : Respuesta MEM 
+Si su numero magico termina con 8,9 : Respuesta WB
+
+4)
+El siguiente programa imprime alternativamente un punto rojo y uno azul en la pantalla grafica . El programa termina :
+a) Si su nm empieza con 0,1,2 o 3 , despues de dibujar un punto en la columna de mas a la derecha de la pantalla
+b) Si su nm empieza con 4, 5 o 6 , despues de dibujar un punto en la fila superior de la pantalla 
+c) Si su nm empieza con 7,8 o 9 , despues de que se hayan dibujado 9 puntos
+
+Cual seria la instruccion que falta en la linea 30?
+(tener en cuenta que la pantalla grafica va de 0 a 49 tanto horizontal como vertical)
+
+Depende del nm :
+SLTI $T9, $S0, 50
+SLTI $T9, $S1, 50
+SLTI $T9, $T0, 9
+
+
+.data
+pos_x: .byte 24
+pos_y: .byte 24
+color_rojo: .byte 255, 0 ,0 , 0
+color_azul: .byte 0, 0, 255, 0
+control: .word32 0x10000
+data: .word32    0x10008
+
+.text
+lwu $s6, control (r0)
+lwu $s7, data (r0)
+lbu $s0, pos_y(r0)
+lbu $s1, pos_x(r0)
+lwu $s2, color_rojo(r0)
+lwu $s3, color_azul(r0)
+daddi $t0, $0,0
+daddi $t8, $0, 1
+seguir: sb $s0, 4($s7)
+
+sb $s1, 5($s7)
+...
+daddi $t4, $s2, 0
+j salto
+azul: daddi $t4, $s3, 0
+salto: ...
+xori $t8, $t8, 1
+daddi $t1, $0, 5
+sd $t1, 0($s6)
+daddi $s0, $s0, 1
+daddi $s1, $s1, 1
+daddi $t0, $t0, 1
+...
+bnez $t9, seguir
+halt
+
+(Instruccion linea 19  BEQZ $T8, azul)
+(Instruccion linea 23 SW $T4, 0($s7)
+
+  
