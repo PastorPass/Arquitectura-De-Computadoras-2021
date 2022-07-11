@@ -1,0 +1,844 @@
+1) Escritura de datos en la pantalla de comandos.
+Implementar un programa en el lenguaje assembler del simulador MSX88 que muestre en la pantalla de comandos un
+mensaje previamente almacenado en memoria de datos, aplicando la interrupción por software INT 7
+
+ORG 1000H
+MSJ DB "ARQUITECTURA DE COMPUTADORAS-"
+DB "FACULTAD DE INFORMATICA-"
+DB 55H
+DB 4EH
+DB 4CH
+DB 50H
+FIN DB ?
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7
+INT 0
+END
+
+2) Escribir un programa que muestre en pantalla todos los caracteres disponibles en el simulador MSX88, comenzando con
+el caracter cuyo código es el número 01H.
+
+ORG 1000H
+MSJ DB ?
+FIN DB ?
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+MOV DL,21H ; inicializo en el caracter 21H
+LOOP: INT 7
+INC BX
+INC DL
+MOV BYTE PTR [BX],DL
+CMP DL,07AH ; el maximo lo defino en 'z' ; MIENTRAS NO SEA Z
+JZ FIN2
+JMP LOOP
+FIN2: INT 0; int 0 = HLT
+END
+
+
+SEGUNDA VERSION (MEJORADA)
+
+ORG 1000H
+MSJ DB ?
+FIN DB ?
+ORG 2000H
+
+; en la primera impresion
+MOV BX,1000H ; INICIALIZO BX = 1000H
+MOV DL,21H ; INICIALIZO EN EL CARACTER 21H
+MOV BYTE PTR [BX],DL ; PASO ESE CARACTER A LO QUE APUNTA BX (1000H)
+MOV AL, OFFSET FIN-OFFSET MSJ
+
+LOOP: INT 7
+INC BX
+INC DL 
+MOV BYTE PTR [BX],DL
+CMP DL,07AH ; el maximo lo defino en 'z' ; MIENTRAS NO SEA Z
+JZ FIN2
+JMP LOOP
+FIN2: INT 0; int 0 = HLT
+END
+
+Version Tres (optima)
+
+ORG 1000H
+INICIO DB 21H ; Inicializo en el caracter 21H
+
+ORG 2000H
+MOV AL, 1 ; cantidad para imprimir, siempre es uno pero se va cmbiando la posicion
+MOV BX, OFFSET INICIO ; a partir de la direccion de INICIO
+PROX: INT 7
+INC INICIO ; Paso al siguiente caracter
+CMP INICIO, 7BH ; comparo con el caracter siguiente al "Z", que es maximo que dispuse
+JNZ PROX ; Si aun no procesamos "Z", continua con el siguiente caracter
+INT 0
+END
+
+3) * Escribir un programa que muestre en pantalla las letras del abecedario, sin espacios, intercalando mayúsculas y
+minúsculas (AaBb…), sin incluir texto en la memoria de datos del programa. Tener en cuenta que el código de “A” es 41H,
+el de “a” es 61H y que el resto de los códigos son correlativos según el abecedario.
+
+
+ORG 1000H
+MAY DB 41H ; "A"
+MIN DB 61H ; "a"
+; La letra "Z" (mayuscula) tiene el codigo 5A
+
+ORG 2000H
+MOV AL, 2 ; Se imprime en pantalla de a 2 caracteres
+MOV BX, OFFSET MAY ; a partir de la direccion de MAY
+PROX: INT 7
+INC MIN ; Paso al siguiente caracter
+INC MAY ; Paso al siguiente caracter
+CMP MAY, 5BH ; comparo con el caracter siguiente al "Z", que es el ultimo valido
+JNZ PROX ; Si aun no procesamos "Z", continua con el siguiente caracter
+INT 0
+END
+
+
+4) Lectura de datos desde el teclado.
+Escribir un programa que solicite el ingreso de un número (de un dígito) por teclado e inmediatamente lo muestre en la
+pantalla de comandos, haciendo uso de las interrupciones por software INT 6 e INT 7.
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+ORG 1500H
+NUM DB ?
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7
+MOV BX, OFFSET NUM
+INT 6
+MOV AL, 1
+INT 7
+MOV CL, NUM
+INT 0
+END
+
+Mi solucion :
+;4) Lectura de datos desde el teclado.
+;Escribir un programa que solicite el ingreso de un número 
+;(de un dígito) por teclado e inmediatamente lo muestre en la
+;pantalla de comandos, haciendo uso de las interrupciones
+;por software INT 6 e INT 7
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+DIG DB ?
+ORG 2000H
+; IMPRESION DEL MENSAJE
+MOV BX,OFFSET MSJ
+MOV AL, OFFSET FIN - OFFSET MSJ
+INT 7
+
+;GUARDADO DE CARACTER LEIDO
+MOV BX, OFFSET DIG
+INT 6
+
+;IMPRESION DEL RESULTADO
+;MOV BX,OFFSET DIG (en BX ya tengo la dir de DIG)
+MOV AL,1
+INT 7
+
+INT 0
+END
+
+5) Modificar el programa anterior agregando una subrutina llamada ES_NUM que verifique si el caracter ingresado es realmente un número. De no serlo, el programa debe mostrar el mensaje “CARACTER NO VALIDO”. La subrutina debe recibir el código del caracter por referencia desde el programa principal y debe devolver vía registro el valor 0FFH en caso de tratarse de un número o el valor 00H en caso contrario. Tener en cuenta que el código del “0” es 30H y el del “9” es
+39H
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+MSJ2 DB "CARACTER NO VALIDO"
+FIN3 DB ?
+ORG 1500H
+NUM DB ?
+ORG 3000H
+ES_NUM: MOV CL,00H ; CL = 00H (mientras no se trate de un numero)
+        MOV DL,30H ; DL = guarda el numero 0
+        CMP BYTE PTR [BX],DL 
+        JS FIN2
+        MOV DH,39H ; DH = guardo el numero 9
+        CMP DH,BYTE PTR [BX]
+        JS FIN2
+        MOV CL,0FFH ; CL = 0FFH si se trata de un numero
+        JMP FIN2
+FIN2:RET
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7
+MOV BX, OFFSET NUM ; BX = la dir de memoria en donde se guardara el valor ingresado x teclado
+INT 6
+CALL ES_NUM
+CMP CL,0FFH ; si no da cero es porque no se ingreso un numero
+JNZ THEN
+JMP ELSE
+THEN: MOV BX,OFFSET MSJ2
+      MOV AL,OFFSET FIN3-OFFSET MSJ2
+      INT 7
+      JMP FIN4
+ELSE:MOV BX,OFFSET NUM
+MOV AL, 1
+INT 7      
+FIN4:INT 0
+END
+
+6) * Escribir un programa que solicite el ingreso de un número (de un dígito) por teclado y muestre en pantalla dicho
+número expresado en letras. Luego que solicite el ingreso de otro y así sucesivamente. Se debe finalizar la ejecución al
+ingresarse en dos vueltas consecutivas el número cero
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+MSJ2 DB "CARACTER NO VALIDO"
+FIN3 DB ?
+CONTADOR_CEROS DB  ?
+
+ORG 1500H
+NUM DB ?
+
+ORG 3000H
+ES_NUM: MOV CL,00H ; CL = 00H (mientras no se trate de un numero)
+        MOV DL,30H ; DL = guarda el numero 0
+        CMP BYTE PTR [BX],DL 
+        JS FIN2
+        MOV DH,39H ; DH = guardo el numero 9
+        CMP DH,BYTE PTR [BX]
+        JS FIN2
+        MOV CL,0FFH ; CL = 0FFH si se trata de un numero
+        JMP FIN2
+FIN2:RET
+
+;ORG 3500H
+;DOS_CEROS: 
+
+ORG 2000H
+MOV CONTADOR_CEROS,0
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7
+MOV BX, OFFSET NUM ; BX = la dir de memoria en donde se guardara el valor ingresado x teclado
+INT 6
+CALL ES_NUM
+CMP CL,0FFH ; si no da cero es porque no se ingreso un numero
+JNZ THEN
+JMP ELSE
+THEN: MOV BX,OFFSET MSJ2
+      MOV AL,OFFSET FIN3-OFFSET MSJ2
+      INT 7
+      JMP FIN4
+      
+ELSE: MOV BX,OFFSET NUM
+      MOV AL, 1
+      INT 7    
+CMP BYTE PTR [BX],30H ;comparo lo que apunta BX = 1500 con el valor 0
+JZ salto
+salto:INC CONTADOR_CEROS,1
+
+FIN4: INT 0
+END (terminar)
+
+ORG 1000H
+MSJ1 DB "CERO  " ; Todos los nombres tienen 6 caracteres para
+DB "UNO   " ; facilitar posicionarnos al imprimir el nombre del numero
+DB "DOS   "
+DB "TRES  "
+DB "CUATRO"
+DB "CINCO "
+DB "SEIS  "
+DB "SIETE "
+DB "OCHO  "
+DB "NUEVE "
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+
+ORG 1500H
+NUM DB ?
+
+ORG 2000H
+MOV CL, 0 ; Contador de veces que ingresa el valor 0 de forma consecutiva
+OTRO: MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+MOV BX, OFFSET NUM
+INT 6 ; Leo un caracter y queda guardado en NUM
+CMP NUM, 30H ; compara el numero ingresado con 0 (osea NUM - 0)
+JNZ NO_CERO
+INC CL ; Si vino un valor 0, incremento el contador
+JMP SEGUIR
+NO_CERO:MOV CL, 0 ; Como no vino un valor 0, reinicializo CL
+SEGUIR: MOV BX, OFFSET MSJ1 ; La direccion BASE sera la del primer mensaje ("CERO")
+; Luego se posicionara al inicio del mensaje adecuado
+MOV AL, 6 ; Se va a imprimir 6 caracteres, todos tienen el mismo largo
+LOOP: CMP NUM, 30H
+JZ IMPRIME ; Si es el valor adecuado, imprimo en pantalla el nombre del numero
+ADD BX, 6 ; Si no es el valor adecuado, me posiciono en el siguiente nombre
+DEC NUM ; Al llegar NUM a 0 estara posicionado en el nombre que corresponde
+JMP LOOP
+IMPRIME:INT 7
+CMP CL, 2
+JNZ OTRO ; Si no se ingreso dos veces seguidas el numero 0, sigue procesando
+INT 0 ; Se ingreso dos veces seguidas 0, por lo que el programa termina
+END
+
+7) * Escribir un programa que efectúe la suma de dos números (de un dígito cada uno) ingresados por teclado y muestre el
+resultado en la pantalla de comandos. Recordar que el código de cada caracter ingresado no coincide con el número que
+representa y que el resultado puede necesitar ser expresado con 2 dígitos
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+
+ORG 1500H
+NUM1 DB ?
+NUM2 DB ?
+
+ORG 3000H
+SUMA: MOV CX,0
+      ADD CX,NUM1
+      ADD CX,NUM2
+RET
+
+ORG 2000H
+MOV DL,30H
+MOV DH,39H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+; LEO 1ER NUMERO Y LO GUARDO EN NUM1
+MOV BX, OFFSET NUM1
+INT 6 ; Leo un caracter y queda guardado en NUM1
+CMP BYTE PTR [BX],DL ; DL = guarda el numero 0
+JS FIN2
+CMP DH,BYTE PTR [BX]  ; DH = guarda el numero 9
+JS FIN2
+
+; LEO 2DO NUMERO Y LO GUARDO EN NUM2
+MOV BX,OFFSET NUM2
+INT 6
+CMP BYTE PTR [BX],DL ; DL = guarda el numero 0
+JS FIN2
+CMP DH,BYTE PTR [BX]  ; DH = guarda el numero 9
+JS FIN2
+
+CALL SUMA 
+JZ IMPRIME ; Si es el valor adecuado, imprimo en pantalla el nombre del numero
+
+IMPRIME:INT 7
+FIN2:INT 0 ; Se ingreso dos veces seguidas 0, por lo que el programa termina
+END /FALTA TERMINAR
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+
+ORG 1500H
+NUM1 DB ?
+NUM2 DB ?
+RES_D DB "0" ; Decena del resultado.
+RES_U DB ? ; Unidad del resultado.
+; Por ej. si se suma "6" + "7", la decena del resultado sera "1" y la unidad "3"
+
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+MOV BX, OFFSET NUM1
+INT 6 ; Leo un caracter y queda guardado en NUM1
+MOV BX, OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+MOV BX, OFFSET NUM2
+INT 6 ; Leo un caracter y queda guardado en NUM2
+MOV AL, NUM2 ; Copio el segundo caracter leido en AL
+SUB AL, 30H ; Le resto 30H, para quedarme con el valor del numero
+ADD AL, NUM1 ; Le sumo el primer caracter leido
+CMP AL, 3AH ; Si quedo un valor entre 30H y 39H, la suma no supero 9
+; Entonces la unidad esta lista
+; Y la decena tambien, ya que comienza con valor "0"
+JS NUM_OK
+SUB AL, 10 ; Si quedo un valor mayor a 39H
+; entonces se le resta 10 para obtener la unidad
+INC RES_D ; Se suma 1 a la decena (pasa de ser el caracter "0" a "1"
+NUM_OK: MOV RES_U, AL ; Copio el valor de la unidad a RES_U
+MOV BX, OFFSET RES_D ; A partir de la dir. de RES_D, se imprime 2 caracteres
+MOV AL, 2
+INT 7
+INT 0
+END
+
+8) Escribir un programa que efectúe la resta de dos números (de un dígito cada uno) ingresados por teclado y muestre el
+resultado en la pantalla de comandos. Antes de visualizarlo el programa debe verificar si el resultado es positivo o negativo
+y anteponer al valor el signo correspondiente
+
+ORG 1000H
+MSJ DB "INGRESE UN NUMERO:"
+FIN DB ?
+
+ORG 1500H
+NUM1 DB ?
+NUM2 DB ?
+POSITIVO DB "+"
+NEGATIVO DB "-"
+RES_D DB "0" ; Decena del resultado.
+RES_U DB ? ; Unidad del resultado.
+; Por ej. si se suma "6" + "7", la decena del resultado sera "1" y la unidad "3"
+
+ORG 2000H
+MOV BX, OFFSET MSJ
+MOV AL, OFFSET FIN-OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+MOV BX, OFFSET NUM1
+INT 6 ; Leo un caracter y queda guardado en NUM1
+MOV BX, OFFSET MSJ
+INT 7 ; Imprimo mensaje en pantalla pidiendo el ingreso de un numero
+MOV BX, OFFSET NUM2
+INT 6 ; Leo un caracter y queda guardado en NUM2
+MOV AL, NUM2 ; Copio el segundo caracter leido en AL
+
+CMP NUM1,AL ; comparo el 1er numero ingresado con el 2do
+JNS THEN  ; si no da signo es porque num1 > num2
+JMP ELSE
+    THEN: SUB NUM1,AL
+          MOV DL,NUM1
+          ADD DL,30H; sumo 30h a DL para que imprima su valor en decimal
+          MOV RES_U,DL ; DL=  resultado de la resta de NUM1 - NUM2 
+          MOV BX,OFFSET POSITIVO
+          MOV AL,1
+          JMP FIN2
+
+ELSE: MOV BX,OFFSET NUM1
+      MOV CL,[BX]
+      MOV BX,OFFSET NUM2
+      MOV DL,[BX]
+      SUB DL,CL
+      ADD DL,30H
+      MOV RES_U,DL
+      MOV BX,OFFSET NEGATIVO
+      MOV AL,1
+      
+FIN2: INT 7
+      MOV BX, OFFSET RES_D
+      MOV AL,2
+      INT 7
+      INT 0
+END
+
+9) Escribir un programa que aguarde el ingreso de una clave de cuatro caracteres por teclado sin visualizarla en pantalla. En
+caso de coincidir con una clave predefinida (y guardada en memoria) que muestre el mensaje "Acceso permitido", caso
+contrario el mensaje "Acceso denegado"
+(FALTA HACER)
+
+
+10) Interrupción por hardware: tecla F10.
+Escribir un programa que, mientras ejecuta un lazo infinito, cuente el número de veces que se presiona la tecla F10 y
+acumule este valor en el registro DX.
+PIC EQU 20H
+EOI EQU 20H
+N_F10 EQU 10
+ORG 40
+IP_F10 DW RUT_F10
+ORG 2000H
+CLI
+MOV AL, 0FEH
+OUT PIC+1, AL ; PIC: registro IMR
+MOV AL, N_F10
+OUT PIC+4, AL ; PIC: registro INT0
+MOV DX, 0
+STI
+LAZO: JMP LAZO
+ORG 3000H
+RUT_F10: PUSH AX
+INC DX
+MOV AL, EOI
+OUT EOI, AL ; PIC: registro EOI
+POP AX
+IRET
+END
+
+MI SOLUCION :
+;10) Interrupción por hardware: tecla F10.
+;Escribir un programa que, mientras ejecuta un lazo infinito, 
+;cuente el número de veces que se presiona la tecla F10 y
+;acumule este valor en el registro DX.
+
+;  PIC
+EOI EQU 20H
+IMR EQU 21H
+INT_0 EQU 24H  ; contiene ID asignado al F10
+
+ORG 3000H
+SUB_F10: INC DX  ; DL = cant. de veces que se presiona la tecla F10
+  MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 2000H
+; Inicializo contador DX
+MOV DX,0
+;paso 2.ELIJO EL ID 10
+
+;paso 3. poner la dir de la subrutina en el vector de int.
+MOV AX,SUB_F10
+MOV BX,40  ; 40 = 4*10
+MOV [BX],AX
+
+;paso 4.Configurar el PIC
+CLI
+  ;b.Poner el ID en el PIC para la INT del F10
+  MOV AL,10
+  OUT INT_0, AL
+  
+  ;c.Desenmascarar la Interrupcion
+  MOV AL,11111110b
+  OUT IMR,AL ; quiero solo el bit de la int de f10 habilitada
+STI
+LOOP: JMP LOOP
+
+INT 0
+END
+
+Explicar detalladamente:
+a) La función de los registros del PIC: ISR, IRR, IMR, INT0-INT7, EOI. Indicar la dirección de cada uno.
+
+Rta :
+DIR 20H -->   EOI : end of interruption (fin de la interrupcion) Antes de volver de la subrutina de la interrupcion debemos poner el valor 20H en la direccion 20H osea el EOI
+
+DIR 23H --> ISR : indica cual dispositivo externo esta siendo atendido
+
+DIR 22H --> IRR : indica cuales dispositivos externos solicitan interrumpir
+
+DIR 21H --> IMR : nos permite definir que interrupciones vamos a atender y cuales ignorar
+1 = deshabilitada  ;  0 = habilitado
+
+DIR 24H -->INT 0 : contiene el ID asignado al F10
+
+DIR 25H --> INT 1 : contiene el ID asignado al TIMER
+
+DIR 26 --> INT 2 : contiene el ID asignado al HANDSHAKE
+
+DIR 27H --> INT 3 : contiene el ID asignado al CDMA
+
+b) Cuáles de estos registros son programables y cómo trabaja la instrucción OUT.
+
+RTA : todos los registros son programables menos los registros ISR e IRR (aunque solo podemos leerlos no modificarlos)
+La instrucion OUT sirve para escribir en la memoria de E/S  solo con el registro AL.
+por ejemplo, (escritura) poner el valor 30 en la posicion 50H de memoria de E/S
+1.MOV AL,30
+2.OUT 50H,AL
+La instruccion out sirve para escribir en cualquier registro de cualquier dispositivo interno, ya sea el PIO o el PIC o el TIMER o el HANDSHAKE
+
+c) Qué hacen y para qué se usan las instrucciones CLI y STI.
+
+Rta : CLI y STI lo que hacen unicamente es alterar el bit  I(bit de interrupcion) del registro de flags
+
+CLI (clear interrump) : es poner un 0 en el bit I del registro de flags para que no me interrumpan desde afuera
+
+STI : cuando termino de configurar la interrupcion del pic.
+Lo que hace es poner en 1 el bit I del registro de flags , para que me interrumpan
+
+Registro de flags
+BIT I:  1 = habilitado (me interrumpen)
+        0 = deshabilitado  ( no me interrumpen)
+
+11) Escribir un programa que permita seleccionar una letra del abecedario al azar. El código de la letra debe generarse en
+un registro que incremente su valor desde el código de A hasta el de Z continuamente. La letra debe quedar seleccionada al
+presionarse la tecla F10 y debe mostrarse de inmediato en la pantalla de comandos.
+
+PIC EQU 20H
+EOI EQU 20H
+N_F10 EQU 10
+
+ORG 40
+IP_F10 DW RUT_F10
+
+ORG 1500H
+LETRA DB ?
+
+ORG 2000H
+CLI
+MOV AL, 0FEH
+OUT PIC+1, AL ; PIC: registro IMR
+MOV AL, N_F10
+OUT PIC+4, AL ; PIC: registro INT0
+MOV DX, 0
+STI
+
+MOV CL, 41H
+LAZO: INC CL
+CMP CL,5AH
+JZ FIN
+JMP LAZO
+FIN: INT 0
+
+ORG 3000H
+RUT_F10: PUSH AX
+
+
+MOV BX,OFFSET LETRA
+MOV [BX],CL
+MOV AL,1
+INT 7
+;INT 0  ; Para que muestre solo un resultado  
+MOV AL, EOI
+OUT EOI, AL ; PIC: registro EOI
+POP AX
+IRET
+END
+
+
+MI SOLUCION :
+
+;Escribir un programa que permita seleccionar una letra del
+;abecedario al azar. El código de la letra debe generarse en
+;un registro que incremente su valor desde el código de A hasta
+;el de Z continuamente. La letra debe quedar seleccionada al
+;presionarse la tecla F10 y debe mostrarse de inmediato en 
+;la pantalla de comandos.
+
+;  PIC
+EOI EQU 20H
+IMR EQU 21H
+INT_0 EQU 24H  ; contiene ID asignado al F10
+
+ORG 1500H
+TABLA DB ?
+
+ORG 3000H
+;Imprimo caracter al presionar la tecla F10
+SUB_F10: MOV BX,OFFSET TABLA
+  MOV [BX],CL
+  MOV AL,1
+  INT 7
+  MOV AL,20H
+  OUT EOI,AL
+IRET
+
+ORG 2000H
+;paso 2.ELIJO EL ID 10
+;paso 3. poner la dir de la subrutina en el vector de int.
+MOV AX,SUB_F10
+MOV BX,40  ; 40 = 4*10
+MOV [BX],AX
+
+;paso 4.Configurar el PIC
+CLI
+  ;b.Poner el ID en el PIC para la INT del F10
+  MOV AL,10
+  OUT INT_0, AL
+  
+  ;c.Desenmascarar la Interrupcion
+  MOV AL,11111110b
+  OUT IMR,AL ; quiero solo el bit de la int de f10 habilitada
+STI
+
+MOV CL, 41H
+LOOP: INC CL
+  CMP CL, 5AH
+  JNZ LOOP
+INT 0
+END
+
+12) Interrupción por hardware: TIMER.
+Implementar a través de un programa un reloj segundero que muestre en pantalla los segundos transcurridos (00-59 seg)
+desde el inicio de la ejecución. 
+
+TIMER EQU 10H
+PIC EQU 20H
+EOI EQU 20H
+N_CLK EQU 10
+
+ORG 40
+IP_CLK DW RUT_CLK
+
+ORG 1000H
+SEG DB 30H
+DB 30H
+FIN DB ?
+
+ORG 3000H
+RUT_CLK: PUSH AX
+INC SEG+1
+CMP SEG+1, 3AH
+JNZ RESET
+MOV SEG+1, 30H
+INC SEG
+CMP SEG, 36H
+JNZ RESET
+MOV SEG, 30H
+RESET: INT 7
+MOV AL, 0
+OUT TIMER, AL
+MOV AL, EOI
+OUT PIC, AL
+POP AX
+IRET
+
+ORG 2000H
+CLI
+MOV AL, 0FDH
+OUT PIC+1, AL ; PIC: registro IMR
+MOV AL, N_CLK
+OUT PIC+5, AL ; PIC: registro INT1
+MOV AL, 1
+OUT TIMER+1, AL ; TIMER: registro COMP
+MOV AL, 0
+OUT TIMER, AL ; TIMER: registro CONT
+MOV BX, OFFSET SEG
+MOV AL, OFFSET FIN-OFFSET SEG
+STI
+LAZO: JMP LAZO
+END ( NO CORRE EN VONSIM)
+
+(CORRE EN VONSIM)
+
+;;Interrupción por hardware: TIMER.
+;Implementar a través de un programa un reloj segundero que muestre 
+;en pantalla los segundos transcurridos (00-59 seg)
+;desde el inicio de la ejecución. 
+
+;  TIMER
+CONT EQU 10H
+COMP EQU 11H
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_1 EQU 25H
+N_CLK EQU 10
+
+ORG 40
+IP_CLK DW RUT_CLK
+
+ORG 1000H
+SEG DB 30H
+    DB 30H
+FIN DB ?
+
+ORG 3000H
+RUT_CLK: PUSH AX
+INC SEG
+CMP SEG, 3AH
+JNZ RESET
+MOV SEG, 30H
+INC SEG
+CMP SEG, 36H
+JNZ RESET
+MOV SEG, 30H
+RESET: INT 7
+MOV AL, 0
+OUT CONT, AL
+MOV AL, 20H
+OUT EOI, AL
+POP AX
+IRET
+
+ORG 2000H
+CLI
+MOV AL, 0FDH
+OUT IMR, AL ; PIC: registro IMR
+MOV AL, N_CLK
+OUT INT_1, AL ; PIC: registro INT1
+MOV AL, 1
+OUT COMP, AL ; TIMER: registro COMP
+MOV AL, 0
+OUT CONT, AL ; TIMER: registro CONT
+MOV BX, OFFSET SEG
+MOV AL, OFFSET FIN-OFFSET SEG
+STI
+LAZO: JMP LAZO
+END
+
+Explicar detalladamente:
+a) Cómo funciona el TIMER y cuándo emite una interrupción a la CPU.
+
+RTA : el TIMER es un dispositivo interno que posee dos registros de 8 bits
+ Cuando coinciden los valores de sus registros se provoca una señal de salida , OSEA SE DISPARA UNA INTERRUPCION
+
+b) La función que cumplen sus registros, la dirección de cada uno y cómo se programan
+COMP : registro de comparacion que determina el modulo de la cuenta del timer.
+CONT : registro contador , muestra la cuenta de los pulsos de la señal aplicada a la entrada del periferico.
+Dir del CONT = 10H
+Dir del COMP = 11H
+Frecuenzia = 1Hz
+Estos registros se programan como cualquier dispositivo interno, a traves de las operaciones IN y OUT usando solo el registro AL para leer o escribir datos.
+
+13) Modificar el programa anterior para que también cuente minutos (00:00 - 59:59), pero que actualice la visualización en
+pantalla cada 10 segundos.  (FALTA HACER)
+
+
+14) * Implementar un reloj similar al utilizado en los partidos de básquet, que arranque y detenga su marcha al presionar
+sucesivas veces la tecla F10 y que finalice el conteo al alcanzar los 30 segundos. 
+
+TIMER EQU 10H
+PIC EQU 20H
+EOI EQU 20H
+N_CLK EQU 10
+N_F10 EQU 20
+ORG 40
+IP_CLK DW RUT_CLK
+ORG 80
+IP_F10 DW RUT_F10
+ORG 1000H
+SEG DB 30H ; Decena
+DB 30H ; Unidad
+FIN DB ?
+ORG 3000H
+RUT_CLK: PUSH AX ; Se guarda el valor de AX, porque se va a usar el registro
+INC SEG+1
+CMP SEG+1, 3AH
+JNZ RESET
+MOV SEG+1, 30H
+INC SEG
+CMP SEG, 33H
+JNZ RESET
+MOV DL, 1 ; Pongo en TRUE el flag de finalizacion
+MOV AL, 0FFH ; Deshabilito interrupciones en IMR
+OUT PIC+1, AL
+RESET: MOV AL, 2 ; El contador tiene 2 caracteres
+INT 7 ; Se imprime el valor actual
+MOV AL, 0 ; Se vuelve a cero el contador del TIMER
+OUT TIMER, AL
+MOV AL, EOI ; Se finaliza la atencion de la interrupcion
+OUT PIC, AL
+POP AX ; Se recupera el valor que contenia AX al entrar en la rutina
+IRET
+ORG 3500H
+RUT_F10: PUSH AX ; Se guarda el valor de AX, porque se va a usar el registro
+IN AL, PIC+1 ; Recupero el valor actual del IMR
+XOR AL, 00000010B ; Y cambio la linea correspondiente al TIMER
+OUT PIC+1, AL
+MOV AL, EOI ; Se finaliza la atencion de la interrupcion
+OUT PIC, AL
+POP AX ; Se recupera el valor que contenia AX al entrar en la rutina
+IRET
+ORG 2000H
+CLI
+MOV AL, 0FEH
+OUT PIC+1, AL ; PIC: registro IMR
+MOV AL, N_F10
+OUT PIC+4, AL ; PIC: registro INT0, F10
+MOV AL, N_CLK
+OUT PIC+5, AL ; PIC: registro INT1, TIMER
+MOV AL, 1
+OUT TIMER+1, AL ; TIMER: registro COMP
+MOV AL, 0
+OUT TIMER, AL ; TIMER: registro CONT
+MOV BX, OFFSET SEG ; Direccion del contador
+MOV DL, 0
+STI
+LAZO: CMP DL, 0
+JZ LAZO
+INT 0
+END  (NO CORRE EN VONSIM, ADAPTARLO)
+
+15) Escribir un programa que implemente un conteo regresivo a partir de un valor ingresado desde el teclado. El conteo
+debe comenzar al presionarse la tecla F10. El tiempo transcurrido debe mostrarse en pantalla, actualizándose el valor cada
+segundo (FALTA HACER)
+
+. FALTA HACER PUNTO 9,13 Y 15

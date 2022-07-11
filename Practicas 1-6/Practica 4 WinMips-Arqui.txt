@@ -1,0 +1,378 @@
+Objetivos: Comprender el funcionamiento de la segmentación de cauce del procesador MIPS de 64 bits. Analizar las ventajas e
+inconvenientes de este tipo de arquitectura. Familiarizarse con el desarrollo de programas para procesadores con sets reducidos de instrucciones (RISC).
+Resolver problemas y verificarlos a través de simulaciones (winmips64)
+Los ejercicios con * tienen solución propuesta total o parcial.
+
+1) Muchas instrucciones comunes en procesadores con arquitectura CISC no forman parte del repertorio de instrucciones del
+MIPS64, pero pueden implementarse haciendo uso de una única instrucción. Evaluar las siguientes instrucciones, indicar qué
+tarea realizan y cuál sería su equivalente en lenguaje assembly del x86.
+a) dadd r1, r2, r0     ; MOV ax, bx + 0
+b) daddi r3, r0, 5     ; MOV ax, 0 + 5
+c) dsub r4, r4, r4     ; MOV BX, bx-bx
+d) daddi r5, r5, -1    ; MOV AX, AX-1
+e) xori r6, r6, 0xffffffffffffffff   ;mov AX, XOR AX con --> 0xffffffffffffffff
+
+2) * El siguiente programa intercambia el contenido de dos palabras de la memoria de datos, etiquetadas A y B.
+.data
+A: .word 1
+B: .word 2
+
+.code
+ld r1, A(r0)
+ld r2, B(r0)
+sd r2, A(r0)  ; #1
+sd r1, B(r0)
+halt
+
+a) Ejecutarlo en el simulador con la opción Configure/Enable Forwarding deshabilitada. Analizar paso a paso su
+funcionamiento, examinar las distintas ventanas que se muestran en el simulador y responder:
+- ¿Qué instrucción está generando atascos (stalls) en el cauce (ó pipeline) y por qué?
+  Rta : #1 esta inst. esta causando el atasco, ya que hay una dependencia de dato en el reg. r2, que se debe leer r2 pero todavia no se cargo en la memoria, tiene que esperar a la etapa WB para que este disponible para la sig instruccion en el cauce y luego continuar con las demas etapas.
+
+- ¿Qué tipo de „stall‟ es el que aparece?
+  Rta : Por dependencia de datos
+- ¿Cuál es el promedio de Ciclos Por Instrucción (CPI) en la ejecución de este programa bajo esta configuración?
+  Rta : Hay que tener en cuenta que tenemos 2 atascos.
+  Ejecucion : 11 Ciclos  ;  5 Instrucciones
+CPI = (instrucciones +4+ Atascos )/ instrucciones
+CPI =    5            + 4 + 2  / 5    --> 11/5 --> 2.2 
+
+b) Una forma de solucionar los atascos por dependencia de datos es utilizando el Adelantamiento de Operandos o Forwarding. ( tecnica modificando el hardware)
+Ejecutar nuevamente el programa anterior con la opción Enable Forwarding habilitada y responder:
+- ¿Por qué no se presenta ningún atasco en este caso? Explicar la mejora.
+  Rta : Porque al activar el forwarding, se crean 2 buffers (registros temporales) que estan entre las etapas Mem -- WB y ex -- Mem, que permite guardar valores temporales en los cuales se puede acceder a estos intermediarios tempranamente y no esperar a las ultimas etapas a esperar que se cargue el dato.
+
+- ¿Qué indica el color de los registros en la ventana Register durante la ejecución?
+  Rta :  Es el color de la etapa (en este caso verde por Memoria) en el momento en que se cargan los valores 1 y 2 en los registros r1 y r2.  En este caso empieza a cargar en el ciclo 4(luego de la 1era impresion) y 5 (luego de la 1era impresion)
+
+- ¿Cuál es el promedio de Ciclos Por Instrucción (CPI) en este caso? Comparar con el anterior.
+  Rta : Ejecucion : 9 ciclos ;  5 instrucciones 
+  * sin contar atascos(ya que no hay)
+  CPI = cant instrucciones + 4 / cant. instr.
+  CPI = 5+4 / 5  --> 9/5 --> 1.8 
+Comparado al anterior es mucho mejor ya que descuenta los ciclos de penalizacion de los atascos y el programa es mucho mas fluido y segmentado.
+
+3) * Analizar el siguiente programa con el simulador MIPS64:
+.data
+A: .word 1
+B: .word 3
+.code
+ld r1, A(r0)
+ld r2, B(r0)
+loop: dsll r1, r1, 1
+daddi r2, r2, -1
+bnez r2, loop
+halt
+a) Ejecutar el programa con Forwarding habilitado y responder:
+- ¿Por qué se presentan atascos tipo RAW?
+  Rta : porque hay una dependencia de datos en la linea de bnez r2, loop, al procesarse en la etapa ID 
+  Esta instrucción necesita del contenido del registro R2 que está siendo utilizado por la
+instrucción DADDI R2,R2,-1 en la etapa EX sin salir aún de esta.
+
+- Branch Taken es otro tipo de atasco que aparece. ¿Qué significa? ¿Por qué se produce?
+  Rta : BTS = es un atasco por una rama equivocada, cuando se ejecuta la instruccion de salto, siempre carga la instruccion que le sigue al salto, esto no quiere decir que la ejecuta(solo la carga) por lo que en cada iteracion de este salto va a perder un ciclo de ejecucion.
+
+- ¿Cuántos CPI tiene la ejecución de este programa? Tomar nota del número de ciclos, cantidad de instrucciones y CPI.
+  Rta : cant inst + atascos + 4 / cant instr.
+  CPI = (12 + 5 + 4) / 12 -- > 21/12 --> 1.75
+b) Ejecutar ahora el programa deshabilitando el Forwarding y responder:
+- ¿Qué instrucciones generan los atascos tipo RAW y por qué? ¿En qué etapa del cauce se produce el atasco en cada caso y
+durante cuántos ciclos?
+  Rta : la 1er instruccion que genera el 1er atasco RAW es loop: dsll r1, r1, 1 , ya que el valor leido todavia no se cargo en r1. esto es en la etapa ID y se pierde solo un ciclo de penalizacion en la 1er pasada / iteracion.
+  La 2da instruccion que genera el 2do atasco tipo RA2 es bnez r2, loop ya que ahora en vez de tener solo un atasco RAW tiene 2, perdiendo la ganancia de ciclo que te permitia el Forwarding habilitado. esto es debido a que en r2 todavia no llego el valor a ser guardado en ese registro. (la etapa WB), este atasco se produce en la etapa ID durante 3 pasadas, osea 6 atascos en total(de solo esta instruccion).
+
+- Los Branch Taken Stalls se siguen generando. ¿Qué cantidad de ciclos dura este atasco en cada vuelta del lazo „loop‟?
+Comparar con la ejecución con Forwarding y explicar la diferencia.
+
+Rta :Con forwarding deshabilitada, Los atascos por Branch Taken Stalls duran 2 ciclos en cada vuelta del lazo loop,
+mientras que con dicha opción habilitada se reducen a 1 ciclo por vuelta de lazo.
+Esta diferencia tiene su causa en la instrucción condicional que es la que está generando los atascos RAW;
+entonces al disminuir la cantidad de RAWs producidos por esta, también disminuyen los ciclos de espera de la
+instrucción siguiente, que además se dejara de ejecutar si la condicional así se lo indica al procesador
+
+- ¿Cuántos CPI tiene la ejecución del programa en este caso? Comparar número de ciclos, cantidad de instrucciones y CPI con el caso con Forwarding.
+
+Rta : CON FORWARDING ----
+  21 ciclos ;  12 instrucciones
+  CPI = 1.75 ciclos x instruccion
+  
+  SIN FORWARDING ---
+  25 ciclos ;  12 instrucciones
+  CPI = 2.083 ciclos x instruccion
+c) Reordenar las instrucciones para que la cantidad de RAW sea „0‟ en la ejecución del programa (Forwarding habilitado)
+ 
+Rta :
+
+.data
+  A: .word 1
+  B: .word 3
+  
+.code
+  ; 1X2 --> 2X2 --> 4X2  = 2^3 = 8 en reg r1
+  ld r2, B(r0)  ; r2 = 3
+  ld r1, A(r0)  ; r1 = 1
+  loop: daddi r2, r2, -1
+    dsll r1, r1, 1  ; desplazo a la izq 1 los bits del registro r1 dejandolo en el mismo reg.
+    bnez r2, loop  ; mientras r2 no sea cero, itero
+halt
+-----------------------------------
+18 ciclos ; 12 instrucciones
+CPI = 1.5 ciclos por intruccion
+-----------------------------------
+
+d) Modificar el programa para que almacene en un arreglo en memoria de datos los contenidos parciales del registro r1 ¿Qué
+significado tienen los elementos de la tabla que se genera?
+son los resultados de la potencia de dos, por ejemplo : 1x2 = 2 ;  2x2 = 4 ; 4x2 = 8
+o las potencias de 2 elevado a un exponente que empieza en 0 hasta 3(el loop)
+por ej: 2^0 = 1 ; 2^1 = 2 ; 2^2 = 4 ; 2^3 = 8 ...etc.
+
+  .data
+  A: .word 1
+  B: .word 3
+  tabla: .word 0
+.code
+  daddi r3 , r0, 0  ; r3 = inicializo r3 = 0
+  ; 1X2 --> 2X2 --> 4X2  = 2^3 = 8 en reg r1
+  ld r1, A(r0)  ; r1 = 1
+  ld r2, B(r0)  ; r2 = 3
+  
+  ; 1er valor que se guarda de r1 a r3 antes del loop
+  dadd r3,r0,r1
+  sd r3,tabla(r5) 
+  
+  loop: daddi r2, r2, -1
+    dsll r1, r1, 1  ; desplazo a la izq 1 los bits del registro r1 dejandolo en el mismo reg.
+	; tomo lo que hay en r1 y lo mando a r3
+	dadd r3,r0,r1
+	
+	; uso a r5 como desplazamiento + 8
+	daddi r5,r5,8
+	
+	; paso lo que quedo en r3 a la tabla 
+	sd r3,tabla(r5) 
+	
+    bnez r2, loop  ; mientras r2 no sea cero, itero
+halt
+
+4) * Dado el siguiente programa:
+.data
+tabla: .word 20, 1, 14, 3, 2, 58, 18, 7, 12, 11
+num: .word 7
+long: .word 10
+.code
+ld r1, long(r0)
+ld r2, num(r0)
+dadd r3, r0, r0
+dadd r10, r0, r0
+loop: ld r4, tabla(r3)
+beq r4, r2, listo
+daddi r1, r1, -1
+daddi r3, r3, 8
+bnez r1, loop
+j fin
+listo: daddi r10, r0, 1
+fin: halt
+
+a) Ejecutar en simulador con Forwarding habilitado. ¿Qué tarea realiza? ¿Cuál es el resultado y dónde queda indicado?
+  
+Rta : 
+El programa busca en TABLA un elemento igual al contenido en la dirección de memoria NUM. En este caso dicha
+coincidencia se produce cuando el contenido del registro R4 es igual al contenido del registro R2 (R4=R2), razón
+por la cual luego de evaluada esta condición y de resultar verdadera se salta a la posición de memoria indicada
+por la etiqueta “listo”. Cuando hay coincidencia la línea de programa en listo suma al registro R10 un 1, caso
+contrario el contenido del registro R10 queda en 0. Este es el resultado y queda almacenado en el registro R10. El
+registro R3 se utiliza como índice para recorrer la TABLA. El contenido del registro R3 se incrementa de a 8 porque
+cada elemento de tabla es del tamaño word, es decir de 64 bits (8 bytes).
+
+b) Re-Ejecutar el programa con la opción Configure/Enable Branch Target Buffer habilitada. Explicar la ventaja de usar este
+método y cómo trabaja.
+
+Rta :
+Habilitando la opción Branch Target Buffer (BTB) logramos reducir los atascos Branch Taken stalls a la mitad.
+Tener en cuenta que esta opción es útil cuando aumenta la cantidad de iteraciones de un lazo. Como vemos
+también esta opción no actúa sobre los atascos por dependencia de datos (RAW en este caso) que no se
+modifican. 
+
+c) Confeccionar una tabla que compare número de ciclos, CPI, RAWs y Branch Taken Stalls para los dos casos anteriores. 
+
+
+5) El siguiente programa multiplica por 2 los elementos de un arreglo llamado datos y genera un nuevo arreglo llamado res.
+Ejecutar el programa en el simulador winmips64 con la opción Delay Slot habilitada.
+.data
+cant: .word 8
+datos: .word 1, 2, 3, 4, 5, 6, 7, 8
+res: .word 0
+.code
+dadd r1, r0, r0
+ld r2, cant(r0)
+loop: ld r3, datos(r1)
+daddi r2, r2, -1
+dsll r3, r3, 1
+sd r3, res(r1)
+daddi r1, r1, 8
+bnez r2, loop
+nop
+halt
+a) ¿Qué efecto tiene habilitar la opción Delay Slot (salto retardado)?.
+
+b) ¿Con qué fin se incluye la instrucción NOP? ¿Qué sucedería si no estuviera?.
+c) Tomar nota de la cantidad de ciclos, la cantidad de instrucciones y los CPI luego de ejecutar el programa.
+d) Modificar el programa para aprovechar el „Delay Slot‟ ejecutando una instrucción útil. Simular y comparar número de
+ciclos, instrucciones y CPI obtenidos con los de la versión anterior.
+
+.data
+  cant: .word 8
+  datos: .word 1, 2, 3, 4, 5, 6, 7, 8
+  res: .word 0
+.code
+  dadd r1, r0, r0 ; r1 se inicializa en = 0
+  ld r2, cant(r0)  ; r2 = 8
+  loop: ld r3, datos(r1) ; r3 = 1er elemento de la tabla
+	daddi r2, r2, -1 ; resto la "dimL"
+	dsll r3, r3, 1 ; desplazo a la izq 1 vez los bits del reg r3, dejando el resultado en el mismo reg r3
+	sd r3, res(r1) ; guardo el resultado de r3 a res(tabla)
+	bnez r2, loop  ; mientras no llegue a cero, loopeo
+  daddi r1, r1, 8  ; sumo 8 al reg r1 (que me sirve para desplazarme en la tabla
+  halt
+
+6) Escribir un programa que lea tres números enteros A, B y C de la memoria de datos y determine cuántos de ellos son iguales
+entre sí (0, 2 o 3). El resultado debe quedar almacenado en la dirección de memoria D.
+
+.data
+  A: .word 1
+  B: .word 3
+  C: .word 1
+  D: .word 0  ; Si algun numero es igual a otro se carga 1 vez ,2 veces o  3 veces en esta variable D
+ 
+.code 
+  ld r1, A(r0)
+  ld r2, B(r0)
+  ld r3, C(r0)  
+  daddi r4,r0,0 ; r4 = 0
+  
+  beq r1 ,r2 ,sigo1
+  j else1
+  sigo1: daddi r4,r4,1
+  else1: beq r1 ,r3 ,sigo2
+         j else2
+		 sigo2: daddi r4,r4,1
+				
+		 else2:	beq r2 ,r3 ,sigo3
+		        j fin
+				sigo3: daddi r4, r4, 1
+  
+  fin: sd r4, D(r0)
+  halt
+; falta cargar en la memoria de datos con el numero exacto de la cantidad de numeros iguales, solo da un resultado de a 1
+
+7) * Escribir un programa que recorra una TABLA de diez números enteros y determine cuántos elementos son mayores que X.
+El resultado debe almacenarse en una dirección etiquetada CANT. El programa debe generar además otro arreglo llamado RES
+cuyos elementos sean ceros y unos. Un „1‟ indicará que el entero correspondiente en el arreglo TABLA es mayor que X,
+mientras que un „0‟ indicará que es menor o igual.
+
+.data 
+  tabla: .word 1, 5, 3, 8, 1, 6, 3, 12, 2, 10
+  X: .word 4
+  cant: .word 0  ; cant = cantidad de elementos mayores que X
+  res: .word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+.code 
+  ld r1, X(r0)  ; r1 = numero 5
+  daddi r11,r0,1 ; donde guardo unos en el vector res
+  daddi r8, r8 , 0 ; incializo el desplazamiento
+  daddi r2, r0,10  ; r2 = cantidad de iteraciones/ loop
+  daddi r4, r0,0 ; inicializo r4 = 0 (que guarda la cantidad de numeros mayores a X)
+  loop: ld r3, tabla(r8)  ; r3 = 1er elemento de la tabla
+		slt r9,r1,r3  ; r9 = 1 --> si r1 es menor que r3
+
+		bnez r9,cuento ;si salto a cuento es porque el numero es mayor a X
+		j else
+		
+		cuento: sd r11,res(r8)
+				daddi r4,r4,1 ; incremento cant de numeros mayores a X
+				j salto
+		else: beq r3,r1,EsMenoreIgual  ; ahora pregunto si el numero de la tabla es igual a X
+		      EsMenoreIgual: sd r0,res(r8) 
+			  
+	    ;sumo el desplazamiento
+        salto: daddi r2,r2,-1; decremento el nro de iteraciones
+		       daddi r8, r8, 8
+		
+		bnez r2,loop
+  sd r4, cant(r0)
+  halt
+
+8) * Escribir un programa que multiplique dos números enteros utilizando sumas repetidas (similar a Ejercicio 6 o 7 de la Práctica 1). El programa debe estar optimizado para su ejecución con la opción Delay Slot habilitada.
+
+.data
+  num1: .word 2
+  num2: .word 6
+  res: .word 0
+  
+.code
+  ld r1, num1(r0)
+  ld r2, num2(r0)
+  daddi r3, r0, 0
+  loop: daddi r2,r2, -1
+        nop  ; no se me ocurre un ordenamiento de instrucciones en donde no se genere un atasco RAW(por eso agregue un Nop)
+		bnez r2, loop	
+  dadd r3,r3,r1  ; con delay slot habilitado
+  sd r3, res(r0)
+  halt
+
+9) Escribir un programa que implemente el siguiente fragmento escrito en un lenguaje de alto nivel:
+while a > 0 do
+begin
+x := x + y;
+a := a - 1;
+end;
+Ejecutar con la opción Delay Slot habilitada
+
+.data
+  X: .word  2 ; numero a eleccion personal
+  Y: .word  3 ; numero a eleccion personal
+ 
+ .code
+  ld r1, X(r0)  ; r1 = 2
+  ld r2 ,Y(r0)
+  
+  daddi r3, r0,3  ; r3 =  n cantidad de iteraciones en el loop (en este caso elegi 5 = n ); a = r3
+  loop: daddi r3,r3, -1    ; a := a - 1
+        nop
+		bnez r3, loop
+  dadd r1,r1,r2  ; x := x + y
+  halt
+
+
+10) Escribir un programa que cuente la cantidad de veces que un determinado caracter aparece en una cadena de texto. Observar
+cómo se almacenan en memoria los códigos ASCII de los caracteres (código de la letra “a” es 61H). Utilizar la instrucción lbu
+(load byte unsigned) para cargar códigos en registros. La inicialización de los datos es la siguiente:
+.data
+cadena: .asciiz "adbdcdedfdgdhdid" ; cadena a analizar
+car: .asciiz "d" ; caracter buscado
+cant: .word 0 ; cantidad de veces que se repite el caracter car en cadena.
+
+.data
+  cadena: .asciiz "adbdcdedfdgdhdid" ; cadena a analizar
+  car: .asciiz "d" ; caracter buscado
+  cant: .word 0 ; cantidad de veces que se repite el caracter car en cadena.
+  
+.code 
+  daddi r1, r0, cadena  ; r1 = 1er elemento de la cadena
+  daddi r2, r0, 0  ; r2 = 0 (donde guardo la cantidad de veces que se repite el caracter en la cadena)
+  ld r4, car(r0) ; r4 = caracter "d"
+  loop: lbu r3,0(r1)
+        nop
+        ;mientras recorra la cadena y no me encuentre con un 0, sigo iterando
+		beqz r3, fin
+		nop
+		; sino analizo el caracter
+		bne r4,r3, avanzo  ; si no son iguales, avanzo en la cadena
+		; si son iguales entonces sumo en r2 +1
+		daddi r2,r2,1
+		
+		avanzo: daddi r1,r1,1
+		j loop
+		
+  fin: sd r2,cant(r0)
+  halt

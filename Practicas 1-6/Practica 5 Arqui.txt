@@ -1,0 +1,417 @@
+
+
+1) Simular el siguiente programa de suma de números en punto flotante y analizar minuciosamente la ejecución paso a
+paso. Inhabilitar Delay Slot y mantener habilitado Forwarding.
+
+.data
+n1: .double 9.13
+n2: .double 6.58
+res1: .double 0.0
+res2: .double 0.0
+.code
+(1) l.d f1, n1(r0)
+(2) l.d f2, n2(r0)
+(3) add.d f3, f2, f1
+(4) mul.d f4, f2, f1
+(5) s.d f3, res1(r0)
+(6) s.d f4, res2(r0)
+(7) halt
+
+a) Tomar nota de la cantidad de ciclos, instrucciones y CPI luego de la ejecución del programa
+
+Sin Delay slot ni BTB habilitados
+Ejecucion:
+16 ciclos  ; 7 instrucciones
+CPI = 2.286 ciclos por instruccion
+Atascos :
+  4 Atascos RAW ; 2 Atascos Estructurales
+
+Tamaño del codigo 28 bytes
+
+b) ¿Cuántos atascos por dependencia de datos se generan? Observar en cada caso cuál es el dato en conflicto y las
+instrucciones involucradas.
+
+Son 4 los atascos x dependencia de datos , las instrucciones involucradas son :
+
+1º   add.d f3,f2,f1    ; se produce el atasco en la etapa EX de la suma (lo marca en color verde oscuro) ya que necesita leer a f2 pero f2 todavia no llega a la etapa WB
+
+2º  s.d f3, res1(r0)  ; se produce el atasco en la etapa EX , ya que esta esperando al operando que todavia no se cargo en f3, osea, la instruccion add.d f3,f2,f1 no termino de hacer la suma y dejarlo en un registro temporal (ENTRE EX Y MEM x el forwarding)  o su etapa siguiente MEM 
+
+3º  s.d f4,res2(r0)  ; este atasco se produce similarmente a la instruccion de arriba, ya que se esta esperando al operando en la etapa EX , y este operando todavia no dejo un resultado en un registro/ buffer temporal o su etapa siguiente Mem, hablo de la instruccion  mul.d f4, f2, f1 que todavia no termino de hacer la multiplicacion y dejar el resultado en lo anterior dicho.
+
+c) ¿Por qué se producen los atascos estructurales? Observar cuales son las instrucciones que los generan y en qué
+etapas del pipeline aparecen.
+
+Rta : Los atascos estructurales se producen cuando 2 instrucciones quieren acceder a la misma etapa del cauce, esto en WinMips es solo cuando se quiere acceder a la etapa MEM
+La causa : Instrucciones en paralelo, Solo pasa una instruccion, Pasa la instruccion que comenzo antes a ejecutarse, osea, se le da prioridad a la primera instruccion que se cargo en el cauce.
+
+En este programa se generaron 2 atascos estructurales, 
+nro 1 : justo antes de que se produzca, en la instruccion s.d f3, res1(r0)
+cuando se generaron los 2 atascos Raw, en la parte del pipeline se observa que en  la etapa EX hay una instruccion y en la division de esta (osea en FP adder- Suma en punto flotante) se observa parte de una suma de la instruccion add.d f3,f2, f1 que ambas instrucciones estan a punto de llegar a la proxima etapa(mem), aca es donde se produce el atasco estructural.
+
+Nro2 : luego de que se haya producido un atasco para la instruccion s.d f4, res2(r0)
+ en la seccion del pipeline observan dos instrucciones en la etapa de EX (una de suma comun y otra de multiplicacion(la de multiplicacion es por la instruccion mul.d f4,f2,f1)) que estan a punto de ir a la etapa siguiente,(MEM) 
+aca es donde se produce el otro atasco estructural.
+
+d) Modificar el programa agregando la instrucción mul.d f1, f2, f1 entre las instrucciones add.d y mul.d.
+Repetir la ejecución y observar los resultados. ¿Por qué aparece un atasco tipo WAR?
+
+mul quiere modificar f1 pero add.d aun lo esta leyendo, si mul se le adelanta , el add.d lee el valor incorrecto, en consecuencia se produce un atasco WAR 
+Esto se debe a que hay pocos ciclos entre el comienzo de mul.d f1,f2,f1 y add.d f3,f2,f1
+
+mul.d f1,f2,f1 necesita escribir un registro que que add.d f3,f2,f1 aun no leyó
+
+.Puede que realmente no suceda este atasco, pero el hardware lo toma como una situacion potencial.
+
+e) Explicar por qué colocando un NOP antes de la suma, se soluciona el RAW de la instrucción ADD y como
+consecuencia se elimina el WAR
+
+Porque le da un ciclo mas de tiempo a que f2 sea leido por add.d, esto es gracias a que se ejecutan las etapas en el cauce de la instruccion NOP, pero como punto en contra tenemos una instruccion que no hace nada y nos genera ciclos de tiempo perdidos.
+
+2) * Es posible convertir valores enteros almacenados en alguno de los registros r1-r31 a su representación equivalente
+en punto flotante y viceversa. Describa la funcionalidad de las instrucciones mtc1, cvt.l.d, cvt.d.l y mfc1.
+
+Instrucción Descripción
+mtc1 rf, fd Copia los 64 bits del registro entero rf al registro fd de punto
+flotante
+mfc1 rd, ff Copia los 64 bits del registro ff de punto flotante al registro rd
+entero
+cvt.d.l fd, ff Convierte a punto flotante el valor entero copiado al registro ff,
+dejándolo en fd
+cvt.l.d fd, ff Convierte a entero el valor en punto flotante contenido en ff,
+dejándolo en fd
+
+Para copiar el valor que tengo en un registro entero (r0 a r31) a uno de
+punto flotante (f0 a f31):
+• Copiar los 64 bits del registro entero rf al registro fd de punto
+flotante
+o mtc1 rf, fd
+• Conviertir a punto flotante el valor entero copiado al registro ff,
+dejándolo en fd
+o cvt.d.l fd, ff
+Importante: los números muy grandes serán redondeados en su mejor
+representación de punto flotante.
+Para copiar el valor que tengo en un registro de punto flotante (f0 a
+f31) a un registro entero (r1 a r31):
+• Conviertir a entero el valor en punto flotante contenido en ff,
+dejándolo en fd
+o cvt.l.d fd, ff
+• Copiar los 64 bits del registro ff de punto flotante al registro rd
+entero
+o mfc1 rd, ff
+Importante: El número se trunca, no se redondea.
+
+3) * Escribir un programa que calcule la superficie de un triángulo rectángulo de base 5,85 cm y altura 13,47 cm.
+Pista: la superficie de un triángulo se calcula como:
+Superficie = (base x altura) / 2
+
+.data
+base: .double 5.85
+altura: .double 13.47
+sup: .double 0.0
+.code
+l.d f1, base(R0)
+l.d f2, altura(R0)
+mul.d f3, f2, f1 ; f3 = base * altura
+daddi r2, r0, 2
+mtc1 r2, f4
+cvt.d.l f5, f4 ; f5 = 2.0
+div.d f6, f3, f5 ; f6 = base * altura / 2
+s.d f6, superficie(r0)
+Halt
+
+4) El índice de masa corporal (IMC) es una medida de asociación entre el peso y la talla de un individuo.
+Se calcula a partir del peso (expresado en kilogramos, por ejemplo: 75,7 kg) y la estatura (expresada en metros, por
+ejemplo 1,73 m), usando la fórmula:
+IMC = peso / (estatura)2
+De acuerdo al valor calculado con este índice, puede clasificarse el estado nutricional de una persona en:
+Infrapeso (IMC < 18,5), Normal (18,5 ≤ IMC < 25), Sobrepeso (25 ≤ IMC < 30) y Obeso (IMC ≥ 30).
+Escriba un programa que dado el peso y la estatura de una persona calcule su IMC y lo guarde en la dirección etiquetada
+IMC. También deberá guardar en la dirección etiquetada estado un valor según la siguiente tabla:
+
+IMC Clasificación Valor guardado
+< 18,5 Infrapeso 1
+< 25 Normal 2
+< 30 Sobrepeso 3
+≥ 30 Obeso 4
+
+Hacer otro dia.
+
+5) El procesador MIPS64 posee 32 registros, de 64 bits cada uno, llamados r0 a r31 (también conocidos como $0 a $31).
+Sin embargo, resulta más conveniente para los programadores darles nombres más significativos a esos registros.
+La siguiente tabla muestra la convención empleada para nombrar a los 32 registros mencionados:
+
+Registros Nombres ¿Para que se los utiliza? ¿Preservado?
+r0 $zero
+r1 $at
+r2-r3 $v0-$v1
+r4-r7 $a0-$a3
+r8-r15 $t0-$t7
+r16-r23 $s0-$s7
+r24-r25 $t8-$t9
+r26-r27 $k0-$k1
+R28 $gp
+R29 $sp
+R30 $fp
+R31 $ra
+Complete la tabla anterior explicando el uso que normalmente se le da cada uno de los registros nombrados. Marque
+en la columna “¿Preservado?” si el valor de cada grupo de registros debe ser preservado luego de realizada una
+llamada a una subrutina. Puede encontrar información útil en el apunte Programando sobre MIPS64
+Hacer otro dia.
+
+6) Como ya se observó anteriormente, muchas instrucciones que normalmente forman parte del repertorio de un
+procesador con arquitectura CISC no existen en el MIPS64. En particular, el soporte para la invocación a subrutinas es
+mucho más simple que el provisto en la arquitectura x86 (pero no por ello menos potente). El siguiente programa
+muestra un ejemplo de invocación a una subrutina.
+
+.data
+ valor1: .word 16
+ valor2: .word 4
+ result: .word 0
+.text
+ld $a0, valor1($zero)
+ld $a1, valor2($zero)
+jal a_la_potencia
+sd $v0, result($zero)
+halt
+a_la_potencia: daddi $v0, $zero, 1
+ lazo: slt $t1, $a1, $zero
+bnez $t1, terminar
+daddi $a1, $a1, -1
+dmul $v0, $v0, $a0
+j lazo
+ terminar: jr $ra
+
+a) ¿Qué hace el programa? ¿Cómo está estructurado el código del mismo?
+Rta : El programa calcula la potenciacion de un numero (valor1 como base, valor2 + 1 como el exponente) y deja el resultado en result
+
+El codigo esta estructurado con un porgrama principal, llamando a una subrutina a la que le pasa 2 argumentos(la base y el exponente) y retorna un unico valor en r2 = $v0
+
+b) ¿Qué acciones produce la instrucción jal? ¿Y la instrucción jr?
+Rta : Jal es similar al call (del msx88) pero no utiliza la pila, y deja la dir de retorno en el registro r31
+
+Jr <reg> : salta a la direccion contenida en <reg> , es similar al ret
+ret = jr 31
+
+c) ¿Qué valor se almacena en el registro $ra? ¿Qué función cumplen los registros $a0 y $a1? ¿Y el registro $v0?
+Rta : en el registro $ra se guarda la direccion de retorno,osea la proxima instruccion (en codigo hexadecimal) de la llamada de la subrutina, para que sepa donde volver luego del ret
+Los registros $a0,$a1 son argumentos pasados a la subrutina(en este caso son parametros x valor) estos registros se pueden sobreescribir sin ningun problema
+El registro $v0 es donde se guarda el valor de retorno de la subrutina llamada, osea devuelve el resultado en solo esta variable(vealo como la devolucion de un valor de una  funtion en pascal)
+d) ¿Qué sucedería si la subrutina a_la_potencia necesitara invocar a otra subrutina para realizar la multiplicación,
+por ejemplo, en lugar de usar la instrucción dmul? ¿Cómo sabría cada una de las subrutinas a que dirección de
+memoria deben retornar?
+
+Si una subrutina debe llamar a otra, el valor del registro $ra se veria modificado, por eso, en estos casos de anidamiento de subrutinas se debe usar la "pila"
+La solucion seria :
+1.Antes de llamar a subrutina2, Guardar $ra  
+2.Luego de volver de subrutina 2, Restaurar $ra
+3.Donde se hace el guardado? En otro registro o en "la pila"
+
+Utilizando la pila voy a sacar y poner las direcciones del registro $ra, de esta manera,cada subrutina,antes de llamar a otra, se hace el guardado del registro $ra en la pila,se llama a la siguiente subrutina(subrutina2), luego de terminar esa subrutina 2, se debe volver a cargar en $ra el valor cargado en la pila anteriormente, asi se sabe donde debe volver para ejecutar las proximas instrucciones del programa.
+
+7) Escriba una subrutina que reciba como parámetros un número positivo M de 64 bits, la dirección del comienzo de una
+tabla que contenga valores numéricos de 64 bits sin signo y la cantidad de valores almacenados en dicha tabla.
+La subrutina debe retornar la cantidad de valores mayores que M contenidos en la tabla
+
+.data 
+  tabla: .word 1,7,4,13,2,6,0,1,1,1
+  cant: .word 10
+  num: .word 5
+  cantMayoresQueNum: .word 0
+  
+.code
+  ld $a0, num($0)  ; $a0 = 5 (el numero a analizar)
+  daddi $a1, $0,tabla ; $a1 =  direccion de tabla
+  ld $a2, cant($0)  ; $a2 = 10 (cantidad de valores que hay en la tabla)
+  jal mayorQueNum
+  sd $v0, cantMayoresQueNum($0)
+  halt
+  
+  mayorQueNum: ;hago una copia de la dir de la tabla en $s0
+			   dadd $s0,$a1,$zero  ; $s0 = copia de dir de tabla
+			   
+			   ;cargo con la copia de direccion de tabla, el 1er elemento en $t0
+		 loop: ld $t0, 0($s0) ; $t0 = 1er elemento de la tabla
+			   nop
+			   ;comparo
+			   slt $t1, $a0,$t0	 ; si 5 < 1er elem de tabla entonces $t1 = 1
+			  
+			   beqz $t1, busco ; si $t1 es 0,(o $t1 = 0) osea que el numero analizo es menor que 5,sigo buscando otros numeros
+			   ;si el elemento es mayor que num,sumo
+			   daddi $v0,$v0,1
+			  
+		       busco: daddi $s0,$s0,8  ; sumo el desplazamiento +8 en la copia de dir de tabla
+			
+					; decremento el numero de iteraciones
+					daddi $a2,$a2,-1  
+					bnez $a2, loop
+					jr $ra
+
+8) * Escriba una subrutina que reciba como parámetros las direcciones del comienzo de dos cadenas terminadas en cero y
+retorne la posición en la que las dos cadenas difieren. En caso de que las dos cadenas sean idénticas, debe retornar -1.
+
+.data
+  cadena1: .asciiz "abc"
+  cadena2: .asciiz "abc"
+  Poscads: .word 0
+.code
+  daddi $a0, $0, cadena1  ; $a0 = dir de cadena1
+  daddi $a1, $0, cadena2  ; $a1 = dir de cadena2
+  jal Recorrer   
+  sd $v0, Poscads($0) ; guardo el valor que se haya cargado en $v0 a la variable Poscads
+  halt
+  
+  Recorrer: dadd $v0, $0, $0 ; $v0 = 0 (inicializa)
+		    loop: lbu $t0, 0($a0)  ; $t0 = 1er elemento de la cadena1
+				  lbu $t1, 0($a1)  ; $t0 = 1er elemento de la cadena2
+				  beqz $t0, fin_a0  ; compara ,si el elemento en la cadena1 es cero, salta a fin_a0
+				  beqz $t1, final   ; compara, si el elemento en la cadena2 es cero, salta a final
+				  nop
+				  bne $t0, $t1, final  ; si ambos elemento en $tn no son iguales ,salto a final
+				  
+				  ;los elementos en las cadenas son iguales , then:
+				  daddi $v0, $v0, 1  ; sumo +1 (sirve como posicion) hasta que los elementos de las cadenas difieran
+				  daddi $a0, $a0, 1 ; sumo +1, ya que es un byte por cada caracter de la cadena
+				  daddi $a1, $a1, 1
+				  j loop
+   fin_a0: bnez $t1, final
+		   daddi $v0, $0, -1
+   final: jr $r 
+(pesa mucho, ralentiza el cpu)
+
+9) * Escriba la subrutina ES_VOCAL, que determina si un carácter es vocal o no, ya sea mayúscula o minúscula. La rutina
+debe recibir el carácter y debe retornar el valor 1 si el carácter es una vocal, o 0 en caso contrario
+
+.data
+  letra: .ascii "u"
+  vocales: .asciiz "AEIOUaeiou"   ; tabla de vocales(en may y en min)
+  ok: .word 0 ; si es 1 = el caracter fue una vocal(ya sea mayuscula o minuscula), 0 en caso contrario
+.code
+  ld $a0, letra($0)
+  jal Esvocal
+  sd $v0, ok($0)
+  halt
+  
+  Esvocal: dadd $v0, $0, $0   ; $v0 = 0 (inicializo, con que el caracter no fue vocal)
+		   daddi $t0, $0, 0  ; $t0 = 0 (inicializo el desplazamiento que sirve para desplazarme en la tabla de vocales)
+		   loop: lbu $t1, vocales($t0) ; $t1 = 1er vocal de la tabla de vocales
+			     beqz $t1, fin_vocal  ; $t1 = 0 , salto a  fin_vocal (termine de recorrer todas las vocales de la tabla)
+				 beq $a0, $t1, si_es_voc ; $a0(letra) = $t1 (vocal de la tabla) , salto a si_es_voc 
+				 
+				 ; sino fue vocal , entonces :
+				 daddi $t0, $t0, 1 ; +1 al desplazamiento para seguir analizando la letra con la tabla de vocales
+				 j loop
+  si_es_voc: daddi $v0, $0, 1 ; dejo un 1 porque encontre que la letra coincida con una vocal de la tabla
+  fin_vocal: jr $ra
+
+10) Usando la subrutina escrita en el ejercicio anterior, escribir la subrutina CONTAR_VOC, que recibe una cadena
+terminada en cero , y devuelve la cantidad de vocales que tiene esa cadena.
+
+.data
+  vocales: .asciiz "aeiou"   ; tabla de vocales(en may y en min)
+  cadena: .asciiz "inavowanwowqxa"
+  cantVocalesEnCad: .word 0
+  
+.code
+  daddi $a0, $0, vocales 
+  daddi $a1, $0, cadena
+  jal ContarVocales
+  sd $v0, cantVocalesEnCad($0)
+  halt
+  
+  ContarVocales: dadd $v0, $0, $0   ; $v0 = 0 (inicializo el contador para la cantidad de vocales en cadena)
+		   dadd $s0, $s0,$a0  ; copia 
+	       loop: lbu $t1, 0($a1)  ; $t1 = 1er elemento de la cadena de caracteres a analizar
+				 beqz $t1, fin_letras ; $t1 = 0 ,salto a fin
+				 
+				 ; reinicio $a0
+				 daddi $a0, $0,0
+				 dadd $a0, $0,$s0
+				 
+			loop2: lbu $t0, 0($a0) ; $t0 = 1er vocal de la tabla de vocales
+				 ; compara el 1er elemento de la cadena con la 1er vocal de la tabla
+		         beq $t0, $t1, contarVocal
+				 
+				 ; sino fue vocal , entonces :
+
+				 daddi $a0, $a0, 1 ; avanzo en la cadena de vocales
+				 lbu $t0, 0($a0)
+				 ; si termine de recorrer y comparar con la cadena de vocales(llegue a cero), avanzo en la cadena de letras
+				 beqz $t0, avanzoLetra
+				 j loop2
+				 
+				 contarVocal: daddi $v0,$v0, 1
+							  ;avanzo en la cadena de caracteres a analizar
+				 avanzoLetra: daddi $a1, $a1,1
+							  j loop
+							  
+  fin_letras: jr $ra
+
+
+11)Escribir una subrutina que reciba como argumento una tabla de números terminada en 0. La subrutina debe contar la
+cantidad de números que son impares en la tabla, esta condición se debe verificar usando una subrutina es_impar. La
+subrutina es_impar debe devolver 1 si el número es impar y 0 si no lo es.
+
+.data 
+  tablaNums: .word 5,1,2,4,7,13,0
+  NumsImpares: .word 0
+
+.code
+  ; iniciar SP
+  daddi $sp, $0, 0x400 
+  ;ld $a0, tablaNums($0)  lo recorro inicializo en la subrutina
+  jal RecorrerTabla
+  sd $v0, NumsImpares($0)
+  halt
+  
+  
+  RecorrerTabla: daddi $sp,$sp,-8 ; decremento la pila (-8 bytes)
+				 sd $ra, 0($sp)  ; Push (valor) en la pila - Salvado 
+				 daddi $v0, $0, 0 ; $v0 = 0 (inicializo contador de numeros impares) 
+				 ; usar registro temporal para dejar el numero en tal registro para comparar
+				 daddi $t0, $0,0 ; t0 = 0 (registro para desplazarme en la tabla de numeros)
+				 
+		   loop: ld $a0, tablaNums($t0)
+		         nop
+		         beqz $a0,fin
+				;llamo a subrutina a analizar si el numero es impar
+				 jal Esimpar
+				 beqz $v1, Avanzo ; si $v1 = 0 (numero par) , sigo avanzando en la tabla de numeros
+				 ;sino fue par(osea el numero fue impar) , incremento contador de numeros impares +1
+				 daddi $v0,$v0, 1
+				 ; avanzo en la tabla de numeros
+		 Avanzo: daddi $t0,$t0,8
+				 j loop
+				 
+			fin: ld $ra, 0($sp)  ; Pop(valor) de la pila al registro $ra
+				 daddi $sp, $sp, 8 ; dejo la pila en su estado inicial (+8 bytes)
+		         jr $ra
+				 
+				 
+				 Esimpar: daddi $v1,$0,0  ; $v1 = 0 (inicializo en 0, si sale en 0 es porque es numero par)
+				          andi $v1,$a0,1
+						  jr $ra
+
+12)El siguiente programa espera usar una subrutina que calcule en forma recursiva el factorial de un número entero:
+
+.data
+valor: .word 10
+result: .word 0
+.text
+daddi $sp, $zero, 0x400 ; Inicializa puntero al tope de la pila
+(1)
+ld $a0, valor($zero)
+jal factorial
+sd $v0, result($zero)
+halt
+factorial: ...
+...
+
+(1) La configuración inicial de la arquitectura del WinMIPS64 establece que el procesador posee un bus de direcciones de 10 bits para
+la memoria de datos. Por lo tanto, la mayor dirección dentro de la memoria de datos será de 210 = 1024 = 40016
+
+a) * Implemente la subrutina factorial definida en forma recursiva. Tenga presente que el factorial de un número
+entero n se calcula como el producto de los números enteros entre 1 y n inclusive:
+factorial(n) = n! = n x (n-1) x (n-2) x … x 3 x 2 x 1
+
+b) ¿Es posible escribir la subrutina factorial sin utilizar una pila? Justifique.

@@ -1,0 +1,744 @@
+PRACTICA 1
+EJER 5.A)
+
+;Memoria de Datos
+ORG 1000h
+ A DW 5h  ; dir de memoria 1000h
+ B DW 6h  ; dir de memoria 1002h
+ C DW 2h  ; dir de memoria 1004h
+ D DW ?   ; dir de memoria 1006h--> guardo el result de A (5) + B(6) - C(2) = 9(0009h) 
+ 
+;Memoria de programa
+ORG 2000h
+MOV AX,A
+ADD AX,B
+SUB AX,C
+MOV D,AX
+HLT
+END
+---------------------------------------------------------------------------------------------------------------
+EJER 5.B)
+
+;Memoria de Datos
+ORG 1000h
+ A DW 5h  ; dir de memoria 1000h
+ B DW 6h  ; dir de memoria 1002h
+ C DW 2h  ; dir de memoria 1004h
+ D DW ?   ; dir de memoria 1006h--> guardo el result de A (5) + B(6) - C(2) = 9(0009h) 
+ 
+ 
+ORG 3000h
+CALCULO: MOV AX,A
+ADD AX,B
+SUB AX,C
+MOV D,AX
+RET
+;Memoria de programa
+ORG 2000h
+CALL CALCULO 
+NOP
+HLT
+END
+
+EJER 5.C)
+
+;Memoria de Datos
+ORG 1000h
+ A DW 5h  ; dir de memoria 1000h
+ B DW 6h  ; dir de memoria 1002h
+ C DW 2h  ; dir de memoria 1004h
+ D DW ?   ; dir de memoria 1006h--> guardo el result de A (5) + B(6) - C(2) = 9(0009h)
+ RES DW ?  ; dir de memoria 1008h --> se pasa el resultado a DX
+ 
+ 
+ORG 3000h
+CALCULO: ADD AX,BX
+SUB AX,CX
+MOV RES,AX
+RET
+;Memoria de programa
+ORG 2000h
+MOV AX,A
+MOV BX,B
+MOV CX,C
+CALL CALCULO 
+MOV DX,RES  ; se guarda el resultado en DX
+MOV D,DX  ; yet se guarda el resultado en la variable D
+HLT
+END
+
+
+
+
+EJER 	5.d) Aplicando la reutilizacion de subrutinas, pero por lo que se ve, se aplica otra subrutina y no esta sujeta no modificarse
+
+;Memoria de Datos
+ORG 1000h
+ A1 DW 5h  ; dir de memoria 1000h
+ B1 DW 6h  ; dir de memoria 1002h
+ C1 DW 2h  ; dir de memoria 1004h
+ A2 DW 3h  ; dir de memoria 1006h
+ B2 DW 5h  ; dir de memoria 1008h
+ C2 DW 7h  ; dir de memoria 100Ah
+ D DW ?   ; dir de memoria 100Ch--> guardo el result de A (5) + B(6) - C(2) = 9(0009h)
+ D2 DW ?  ; se debe guardar 1 (0001h) en la dir de memoria 100Eh
+ 
+ORG 3500h
+CALL2:  MOV AX,A2
+ADD AX,B2
+SUB AX,C2
+MOV D2,AX
+RET
+ 
+ORG 3000h
+CALCULO: MOV AX,A1
+ADD AX,B1
+SUB AX,C1
+MOV D,AX
+RET
+
+;Memoria de programa
+ORG 2000h
+CALL CALCULO
+NOP
+PUSH AX
+CALL CALL2
+POP AX
+HLT
+END
+
+EJER 5.D) Aplicado al inciso c
+
+;Memoria de Datos
+ORG 1000h
+ A1 DW 5h  ; dir de memoria 1000h
+ B1 DW 6h  ; dir de memoria 1002h
+ C1 DW 2h  ; dir de memoria 1004h
+ A2 DW 3h  ; dir de memoria 1006h
+ B2 DW 5h  ; dir de memoria 1008h
+ C2 DW 7h  ; dir de memoria 100Ah
+ D DW ?   ; dir de memoria 100Ch--> guardo el result de A (5) + B(6) - C(2) = 9(0009h)
+ D2 DW ?  ; se debe guardar 1 (0001h) en la dir de memoria 100Eh
+ RES DW ?
+ 
+ 
+ORG 3000h
+CALCULO: ADD AX,BX
+SUB AX,CX
+MOV RES,AX
+RET
+
+;Memoria de programa
+ORG 2000h
+MOV AX,A1
+MOV BX,B1
+MOV CX,C1
+CALL CALCULO
+MOV DX,RES
+MOV D,DX
+;Segunda suma 
+MOV AX,A2
+MOV BX,B2
+MOV CX,C2
+CALL CALCULO
+MOV DX,RES
+MOV D2,DX
+HLT
+END
+-------------------------------------------
+EJER 6.A)
+
+;Memoria de Datos
+ORG 1000h
+NUM1 DW 9 ; DIR DE MEMORIA 1000H
+NUM2 DW 3  ; dir de memoria 1002h
+RES DW ?  ; dir de memoria 1004h
+
+;Memoria de programa
+ORG 2000h
+MOV AX,NUM1
+MOV BX,NUM2  
+MOV CX,0
+SUMA: ADD CX,AX
+DEC BX  ; decremento el numero mas pequeño (cuestion de tiempo)
+JNZ SUMA 
+MOV RES,CX
+HLT
+END
+
+EJER 6.B)
+
+;Memoria de Datos
+ORG 1000h
+NUM1 DW 9 ; DIR DE MEMORIA 1000H
+NUM2 DW 3  ; dir de memoria 1002h
+RES DW ?  ; dir de memoria 1004h
+
+ORG 3000h
+MUL: MOV CX,0
+LOOP: ADD CX,AX
+     DEC BX
+     JNZ LOOP
+     RET
+     
+;Memoria de programa
+ORG 2000h
+MOV AX,NUM1
+MOV BX,NUM2
+CALL MUL
+MOV RES,CX
+HLT
+END
+
+
+EJER 6.C) 
+;Memoria de Datos
+ORG 1000h
+NUM1 DW 9 ; DIR DE MEMORIA 1000H
+NUM2 DW 3  ; dir de memoria 1002h
+RES DW ?  ; dir de memoria 1004h
+
+ORG 3000h
+MUL: MOV CX,0
+MOV DX,[BX]
+MOV BX,AX
+MOV AX,[BX]
+LOOP: ADD CX,AX
+      DEC DX
+      JNZ LOOP
+      RET
+     
+;Memoria de programa
+ORG 2000h
+MOV AX,OFFSET NUM1
+MOV BX,OFFSET NUM2
+CALL MUL
+MOV RES,CX
+HLT
+END
+
+EJER 7
+
+ ORG 1000H ; Memoria de datos
+NUM1 DW 5H
+NUM2 DW 3H
+RES DW ?
+
+ORG 3000H ; Subrutina MUL
+MUL: PUSH BX ; preservar registros
+PUSH CX
+PUSH AX
+PUSH DX
+MOV BX, SP
+ADD BX, 12 ; corrección por el IP(2),
+ ; RES(2) y los 4 registros(8)
+MOV CX, [BX] ; cx = num2
+ADD BX, 2 ; bx apunta a num1
+MOV AX, [BX] ; ax = num1
+SUB BX, 4 ; bx apunta a la dir de
+ ; resultado
+MOV BX, [BX] ; guardo
+MOV DX, 0
+SUMA: ADD DX, AX
+DEC CX
+JNZ SUMA
+MOV [BX], DX ; guardar resultado
+POP DX ;restaurar registros
+POP AX
+POP CX
+POP BX
+RET
+
+ ORG 2000H; Prog principal
+; parámetros
+MOV AX, NUM1
+PUSH AX
+MOV AX, NUM2
+PUSH AX
+MOV AX, OFFSET RES
+PUSH AX
+CALL MUL
+; desapilar parámetros
+POP AX
+POP AX
+POP AX
+HLT
+END
+
+
+;8) Subrutinas para realizar operaciones con cadenas de caracteres
+;a) Escribir una subrutina LONGITUD que cuente el número de caracteres de una cadena de caracteres terminada en cero (00H) almacenada en la memoria. La cadena se pasa a la subrutina por referencia vía registro, y el resultado se retorna por valor también a través de un registro. Ejemplo: la longitud de ‘abcd’00h es 4 (el 00h final no cuenta)   
+
+ORG 1000h
+CASA DB "abcd" ; DIR 1000h-1003h
+FIN DB ?  ; dir 1004h
+RES DB ?  ; dir 1005h
+
+ORG 3000h
+LONGITUD:MOV AX,0  ; INICIALIZO CONTADOR AX = 0
+LOOP: CMP CX,0  ; comparo con 0 la cantidad de caracteres de la tabla
+      JZ FIN2
+      INC AX  ; SUMO CONTADOR + 1
+      DEC CX ; DECREMENTO LA CANTIDAD DE CX -1
+      JZ FIN2
+      JMP LOOP
+FIN2: RET
+
+ORG 2000h
+MOV CX ,OFFSET FIN - OFFSET CASA ; CX = la cant de chars que tiene casa
+CALL LONGITUD ; llamo a la subrutina
+MOV RES,AX  ; Guardo la cantidad de chars en la variable RES
+HLT
+END
+
+b) Escribir una subrutina CONTAR_MIN que cuente el número de letras minúsculas de la ‘a’ a la ‘z’ de una cadena de caracteres terminada en cero almacenada en la memoria. La cadena se pasa a la subrutina por referencia vía registro,
+y el resultado se retorna por valor también a través de un registro.
+Ejemplo: CONTAR_MIN de ‘aBcDE1#!’ debe retornar 2  ( FALTA TERMINAR)
+
+ORG 1000h
+LETRAS DB "aBcDE1#!" ; DIR 1000h-1003h
+       DB 0  ; dir 1004h
+RES    DB ?  ; dir 1005h
+
+ORG 3000h
+CONTAR_MIN:MOV CL,0  ; INICIALIZO CONTADOR AX = 0
+LOOP: CMP BYTE PTR [BX],0  ; comparo con 0 la cantidad de caracteres de la tabla
+      JZ FIN2
+      CMP BYTE PTR [BX],61h ; 61h = a (minuscula)
+      JS NOMIN
+      MOV DX,7Ah
+      CMP DX,WORD PTR [BX]  ; ERROR DE COMPARACION
+      JS NOMIN
+      INC CL
+NOMIN:INC BX
+      JMP LOOP
+FIN2: RET
+
+ORG 2000h
+MOV BX,OFFSET LETRAS
+CALL CONTAR_MIN ; llamo a la subrutina
+MOV RES,CL  ; Guardo la cantidad de chars en la variable RES
+HLT
+END
+
+---------------------------------------------------------------------------------------
+* Escriba la subrutina ES_VOCAL, que determina si un caracter es vocal o no, ya sea mayúscula o minúscula. La
+rutina debe recibir el carácter por valor vía registro, y debe retornar, también vía registro, el valor 0FFH si el carácter es una vocal, o 00H en caso contrario.
+Ejemplos: ES_VOCAL de ‘a’ o ‘A’ debe retornar 0FFh y ES_VOCAL de ‘b’ o de ‘4’ debe retornar 00h
+
+ORG 1000H
+CHAR DB "u"
+resultado DB ? ; cambiar este valor y ver que queda en la variable resultado
+; Recibe el caracter a verificar por AH
+; Devuelve el resultado en AL
+ ORG 3000H
+ES_VOCAL: MOV AL, 0FFH
+ CMP AH, 41H ; A
+ JZ FIN
+ CMP AH, 45H ; E
+ JZ FIN
+ CMP AH, 49H ; I
+ JZ FIN
+ CMP AH, 4FH ; O
+ JZ FIN
+ CMP AH, 55H ; U
+ ; ahora comparamos con las vocales minusculas
+ CMP AH, 61H ; a
+ JZ FIN
+ CMP AH, 65H ; e
+ JZ FIN
+ CMP AH, 69H ; i
+ JZ FIN
+ CMP AH, 6FH ; o
+ JZ FIN
+ CMP AH, 75H ; u
+ JZ FIN
+ MOV AL, 00H
+FIN: RET
+ORG 2000h
+MOV AH, CHAR
+CALL ES_VOCAL
+MOV resultado, AL
+HLT
+END
+
+
+d) * Usando la subrutina anterior escribir la subrutina CONTAR_VOC, que recibe una cadena terminada en cero por referencia a través de un registro, y devuelve, en un registro, la cantidad de vocales que tiene esa cadena.
+Ejemplo: CONTAR_MIN de ‘aBcDE1#!’ debe retornar 2
+
+ORG 1000H
+CADENA DB "aBcDE1#!"
+       DB  0
+resultado DB ? ; cambiar este valor y ver que queda en la variable resultado
+; Recibe el caracter a verificar por AH
+; Devuelve el resultado en AL
+ ORG 3000H
+ES_VOCAL: MOV AL, 0FFH
+ CMP BYTE PTR [BX], 41H ; A
+ JZ FIN
+ CMP BYTE PTR [BX], 45H ; E
+ JZ FIN
+ CMP BYTE PTR [BX], 49H ; I
+ JZ FIN
+ CMP BYTE PTR [BX], 4FH ; O
+ JZ FIN
+ CMP BYTE PTR [BX], 55H ; U
+ ; ahora comparamos con las vocales minusculas
+ CMP BYTE PTR [BX], 61H ; a
+ JZ FIN
+ CMP BYTE PTR [BX], 65H ; e
+ JZ FIN
+ CMP BYTE PTR [BX], 69H ; i
+ JZ FIN
+ CMP BYTE PTR [BX], 6FH ; o
+ JZ FIN
+ CMP BYTE PTR [BX], 75H ; u
+ JZ FIN
+ MOV AL, 00H
+FIN: RET
+
+ORG 2000h
+MOV CL,0
+MOV BX, OFFSET CADENA ; paso x referencia
+loop:CALL ES_VOCAL
+MOV resultado, AL ; paso el resultado a la variable resultado
+CMP resultado,0FFh ; comparo si el resultado es 0FFH, osea se dio una vocal
+JZ suma ; si da 0 es porque se trabaja con una vocal y sumo el contador
+JMP loop2 ; sino, voy a buscar otra letra
+suma: INC CL
+loop2:INC BX ; me muevo con el puntero de BX
+CMP BYTE PTR [BX],0 ; comparo cada letra de la cadena hasta encontrar un cero
+JZ fin
+JMP loop
+fin:HLT
+END
+
+e) Escriba la subrutina CONTAR_CAR que cuenta la cantidad de veces que aparece un carácter dado en una cadena
+terminada en cero. El carácter a buscar se debe pasar por valor mientras que la cadena a analizar por referencia,
+ambos a través de la pila.
+Ejemplo: CONTAR_MIN de ‘abbcde!’ y ‘b’ debe retornar 2, mientras que CONTAR_MIN de ‘abbcde!’ y ‘z’
+debe retornar 0.
+
+ORG 1000H
+CADENA DB "abbcde!"
+       DB  0
+LETRA DB   "b"
+
+ ORG 3000H
+CONTAR_LETRA: MOV DL,0 ; inicializo contador en cero en el reg DL
+              MOV BX,SP ; BX =  3FFAH
+              ADD BX,4  ; BX = 3FFEH
+              MOV CL,BYTE PTR [BX] ; se mueve el valor de lo que apunta bx (osea letra) a CL 
+              SUB BX,2 ; me muevo con bx (puntero auxiliar) al principio de la cadena
+              MOV BX,WORD PTR [BX] ; BX = 1000H
+              loop: CMP CL,BYTE PTR [BX]  ; letra = un caracter de la cadena
+                    JZ SUMA  ; se encontro la letra a buscar, sumo en DL
+                    JMP loop2 
+                    SUMA:INC DL
+              loop2:INC BX ; me muevo con bx a traves de la cadena
+                    CMP BYTE PTR [BX],0 ; comparo si bx llega a 0( si llega a cero termina)
+                    JZ FIN
+                    JMP loop
+FIN: RET
+
+ORG 2000h
+MOV AL,LETRA ; AX = LETRA (dependiendo del valor que ingrese)
+PUSH AX ; pongo en la pila el valor de letra
+MOV BX, OFFSET CADENA ; BX = 1000H
+PUSH BX  ; pongo en la pila la dir de donde comienza la cadena (1000H)
+CALL CONTAR_LETRA  ; llamo a la subrutina
+HLT
+END
+
+
+f) Escriba la subrutina REEMPLAZAR_CAR que reciba dos caracteres (ORIGINAL y REEMPLAZO) por valor a
+través de la pila, y una cadena terminada en cero también a través de la pila. La subrutina debe reemplazar el carácter ORIGINAL por el carácter REEMPLAZO.
+
+
+ORG 1000H
+CADENA     DB    ?   ; 1000H
+LETRA_ORG  DB   "A"  ; 1001H
+LETRA_REMP DB   "Z"  ; 1002H
+
+ ORG 3000H
+REEMPLAZAR_CAR: MOV BX,SP ; 3FF8H
+                ADD BX,2   ; 3FFAH
+                MOV BX,[BX] ; BX = 1000H
+                ADD BX,1    ; BX = 1001H
+                MOV CL,BYTE PTR [BX] ; CL = 41H (A)
+                ADD BX,1 ; BX = 1002
+                MOV DL,BYTE PTR [BX] ; DL = 5AH(Z)
+                MOV [BX],CL ; lo que hay en 1002h(referiendose a la variable letra_remp) , le pongo CL (osea 'A')
+                SUB BX,1  ; bajo una posicion
+                MOV [BX],DL ; lo que hay en 1001h (refiriendose a la variable LETRA_ORG) , le pongo DL (osea 'Z')
+FIN: RET
+
+ORG 2000h
+MOV AL,LETRA_ORG ; AX = LETRA (dependiendo del valor que ingrese)
+PUSH AX ; pongo en la pila el valor de letra
+MOV AL,LETRA_REMP
+PUSH AX
+MOV AX, OFFSET CADENA ; AX = 1000H
+PUSH AX  ; pongo en la pila la dir de donde comienza la cadena (1000H)
+CALL REEMPLAZAR_CAR  ; llamo a la subrutina
+POP AX  ; desapilo para vaciar la pila
+POP AX  ; desapilo para vaciar la pila
+POP AX  ; desapilo para vaciar la pila
+HLT
+END
+
+
+9) Subrutinas para realizar rotaciones
+a) Escribir una subrutina ROTARIZQ que haga una rotación hacia la izquierda de los bits de un byte almacenado en la
+memoria. Dicho byte debe pasarse por valor desde el programa principal a la subrutina a través de registros y por
+referencia. No hay valor de retorno, sino que se modifica directamente la memoria.
+Una rotación a izquierda de un byte se obtiene moviendo cada bit a la izquierda, salvo por el último que se mueve a la
+primera posición. Por ejemplo al rotar a la izquierda el byte 10010100 se obtiene 00101001, y al rotar a la izquierda
+01101011 se obtiene 11010110.
+Para rotar a la izquierda un byte, se puede multiplicar el número por 2, o lo que es lo mismo sumarlo a sí mismo. Por
+ejemplo (verificar):
+  0 1101011
++ 0 1101011
+-------------
+  1 1010110 (CARRY=0)
+Entonces, la instrucción add ah,ah permite hacer una rotación a izquierda. No obstante, también hay que tener en
+cuenta que si el bit más significativo es un 1, el carry debe llevarse al bit menos significativo, es decir, se le debe sumar
+1 al resultado de la primera suma.
+  10010100
++ 10010100
+----------------
+  00101000 (CARRY=1)
++ 00000001
+-----------------
+  00101001
+
+b) Usando la subrutina ROTARIZQ del ejercicio anterior, escriba una subrutina ROTARIZQ_N que realice N
+rotaciones a la izquierda de un byte. La forma de pasaje de parámetros es la misma, pero se agrega el parámetro N
+que se recibe por valor y registro. Por ejemplo, al rotar a la izquierda 2 veces el byte 10010100, se obtiene el byte
+01010010.
+c) * Usando la subrutina ROTARIZQ_N del ejercicio anterior, escriba una subrutina ROTARDER_N que sea similar
+pero que realice N rotaciones hacia la derecha.
+Una rotación a derecha de N posiciones, para un byte con 8 bits, se obtiene rotando a la izquierda 8 - N posiciones. Por
+ejemplo, al rotar a la derecha 6 veces el byte 10010100 se obtiene el byte 01010010, que es equivalente a la rotación a
+la izquierda de 2 posiciones del ejemplo anterior.
+d) Escriba la subrutina ROTARDER del ejercicio anterior, pero sin usar la subrutina ROTARIZ. Compare qué ventajas. tiene cada una de las soluciones
+
+10) SWAP Escribir una subrutina SWAP que intercambie dos datos de 16 bits almacenados en memoria. Los
+parámetros deben ser pasados por referencia desde el programa principal a través de la pila.
+Para hacer este ejercicio, tener en cuenta que los parámetros que se pasan por la pila son las direcciones de memoria,
+por lo tanto para acceder a los datos a intercambiar se requieren accesos indirectos, además de los que ya se deben
+realizar para acceder a los parámetros de la pila.
+
+ORG 1000H
+NUM1  DW 5
+NUM2  DW 3
+
+ORG 3000H
+; intercambia dos parametros pasados x referencia a traves de la pila
+SWAP: PUSH AX
+      PUSH BX
+      PUSH CX
+      PUSH DX
+      MOV BX,SP
+      ;tomar DIR NUM1
+      ADD BX,12
+      MOV AX,[BX]
+      
+      ; tomar DIR NUM2
+      SUB BX,2
+      MOV CX,[BX]
+      
+      ; tomar valor de NUM1
+      MOV BX,AX ; BX = DIR DE NUM1
+      MOV AX,[BX] ; AX = VALOR DE NUM1
+      MOV DX,BX ; GUARDAMOS DIR DE NUM1
+      
+      ; tomar valor de NUM2
+      MOV BX,CX ; BX = DIR DE NUM2
+      MOV CX,[BX] ; CX = VALOR DE NUM2
+      
+      ;insertar valor de NUM1 EN LA DIR DE NUM2
+      MOV [BX],AX
+      
+      ;insertar valor de NUM2 EN LA DIR DE NUM1
+      MOV BX,DX ; BX = DIR DE NUM1
+      MOV [BX],CX ; DIR DE NUM1 --> NUM2
+      
+      ; recuperamos los valores originales de los regs desde la pila
+      POP DX
+      POP CX
+      POP BX
+      POP AX
+RET
+
+ORG 2000H
+; mandamos los parametros
+MOV AX, OFFSET NUM1
+PUSH AX
+MOV AX,OFFSET NUM2
+PUSH AX
+CALL SWAP
+POP AX
+POP AX
+HLT
+END
+
+
+11) Subrutinas de cálculo
+a) Escriba la subrutina DIV que calcule el resultado de la división entre 2 números positivos. Dichos números deben
+pasarse por valor desde el programa principal a la subrutina a través de la pila. El resultado debe devolverse también
+a través de la pila por valor.
+
+
+ORG 1000H
+DIVIDIENDO  DW  7
+DIVISOR     DW  2
+COCIENTE    DW  ?
+
+ORG 3000H
+DIVIDIR: MOV BX,SP
+         ADD BX,6
+         MOV AX,[BX] ; EN cx = 7
+         SUB BX,2
+         MOV BX,[BX] ; EN DX = 2
+         MOV CX,0 ; inicializo contador que guarda el cociente
+         
+         LOOP: CMP AX,BX  ; comparo el dividendo con el divisor
+               JS fin ; si el divisor > dividendo ; salgo
+               SUB AX,BX ; voy restando el dividendo x el divisor
+               INC CX ; incremento el contador que guarda el cociente
+               JMP LOOP ; vuelvo a iterar
+fin:RET
+
+ORG 2000H
+MOV AX,DIVIDIENDO
+PUSH AX
+MOV BX, DIVISOR
+PUSH BX
+MOV CX,COCIENTE 
+PUSH CX
+CALL DIVIDIR ; llamo a la subrutina
+POP CX ; guarda el cociente (resultado) EN EL REGISTRO CX
+POP BX
+POP AX 
+HLT
+END
+
+
+b) * Escriba la subrutina RESTO que calcule el resto de la división entre 2 números positivos. Dichos números deben
+pasarse por valor desde el programa principal a la subrutina a través de registros. El resultado debe devolverse
+también a través de un registro por referencia.
+
+
+ORG 1000H
+DIVIDIENDO  DW  7
+DIVISOR     DW  2
+COCIENTE    DW  ?
+RESTO       DW  ?
+
+ORG 3000H
+DIVIDIR: PUSH CX ; apilo en la pila la dir de cociente
+         PUSH DX ; apilo en la pila la dir de resto
+         MOV CX,0 ; inicializo contador que guarda el cociente
+         LOOP: CMP AX,BX  ; comparo el dividendo con el divisor
+               JS fin ; si el divisor > dividendo ; salgo
+               SUB AX,BX ; voy restando el dividendo x el divisor
+               INC CX ; incremento el contador que guarda el cociente
+               JMP LOOP ; vuelvo a iterar
+               fin: POP BX ; desapilo lo que hay en la pila en BX
+                    MOV [BX],AX ; RESTO ; muevo lo que me quedo en la division a lo que apunta BX (la dir de resto)
+                    POP BX ; desapilo lo que hay en la pilo y lo pongo en BX
+                    MOV [BX],CX ; COCIENTE ; muevo lo que me guardo el cociente y lo pongo en lo que apunta BX(la dir de cociente)
+RET
+
+ORG 2000H
+MOV AX,DIVIDIENDO
+MOV BX, DIVISOR
+MOV CX, OFFSET COCIENTE ; paso la dir de cociente a CX
+MOV DX, OFFSET RESTO    ; paso la dir de resto  a DX
+CALL DIVIDIR ; llamo a la subrutina
+HLT
+END
+
+
+c) Escribir un programa que calcule la suma de dos números de 32 bits almacenados en la memoria sin hacer llamados a
+subrutinas, resolviendo el problema desde el programa principal.
+
+ORG 1000H
+N1H  DW  1234H
+N1L  DW  0ABCDH
+N2H  DW  5678H
+N2L  DW  9ABCH
+RESH DW  ?
+RESL DW  ?
+
+ORG 2000H  
+; SUMA DE 2 NUMEROS DE 32 BITS (SIN SUBRUTINAS)
+MOV AX,N1H ; PASO A AX PARTE ALTA DE N1
+MOV BX,N2H ; PASO A BX PARTE ALTA DE N2
+MOV CX,N1L ; PASO A CX PARTE BAJA DE N1
+MOV DX,N2L ; PASO A DX PARTE BAJA DE N2
+;sumo los numeros de 32 bits 
+ADD CX,DX
+ADC AX,BX  ; sumo (si hay carry en la suma anterior)
+
+; Retorno los resultados
+MOV RESH,AX
+MOV RESL,CX
+HLT
+END
+
+d) Escribir un programa que calcule la suma de dos números de 32 bits almacenados en la memoria llamando a una
+subrutina SUM32, que reciba los parámetros de entrada por valor a través de la pila, y devuelva el resultado también
+por referencia a través de la pila.
+
+
+        ORG 1000h
+N1L     DW      1234h
+N1H     DW      0ABCDh
+N2L     DW      5678h
+N2H     DW      0CDEFh
+RESL    DW      ?
+RESH    DW      ?
+ 
+        ORG 3000h
+suma32c: MOV BX, SP
+        ADD BX, 2    ;  salteo el registro IP que apila el CALL
+        MOV AX, [BX] ;  N1L -> AX
+        ADD BX, 2
+        MOV CX, [BX] ;  N2L -> CX
+        ADD BX, 2
+        MOV DX, [BX] ;  N1H -> DX
+        ADD BX, 2
+        MOV BX, [BX] ;  N2H -> BX
+        ADD CX, AX   ;  N1L + N2L
+        ADC DX, BX   ;  N2H + N1H + carry
+        MOV BX, SP
+        ADD BX, 10   ;  salteo hasta offset RESL
+        MOV AX, [BX] ;  OFFSET RESL -> AX
+        ADD BX, 2
+        MOV BX, [BX] ;  OFFSET RESH -> BX
+        MOV [BX], DX ;  N2H + N1H + carry -> RESH
+        MOV BX, AX
+        MOV [BX], CX ;  N1L + N2L -> RESL
+        RET
+ 
+        ORG 2000h
+        ; suma de 2 numeros de 32 bits
+        ; recibiendo los parametros de entrada x valor x pila  (numeros a sumar)
+        ; y devolviendo el resultado x referencia a traves de la pila
+        MOV AX, OFFSET RESH
+        PUSH AX
+        MOV AX, OFFSET RESL
+        PUSH AX
+        MOV AX, N2H
+        PUSH AX
+        MOV AX, N1H
+        PUSH AX
+        MOV AX, N2L
+        PUSH AX
+        MOV AX, N1L
+        PUSH AX
+        CALL suma32c
+        HLT
+END

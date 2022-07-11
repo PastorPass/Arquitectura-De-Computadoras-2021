@@ -1,0 +1,956 @@
+PRACTICA 3
+Entrada/Salida
+Objetivos: Comprender la comunicación entre el microprocesador y los periféricos externos (luces,
+microconmutadores e impresora). Configurar la interfaz de entrada/salida (PIO), el dispositivo de handshaking
+(HAND-SHAKE) y el dispositivo de comunicación serie (USART) para el intercambio de información entre el
+microprocesador y el mundo exterior. Escribir programas en el lenguaje assembly del simulador MSX88.
+Ejecutarlos y verificar los resultados, analizando el flujo de información entre los distintos componentes del
+sistema.
+
+1) Uso de las luces y las llaves a través del PIO. Ejecutar los programas bajo la configuración P1 C0 del
+simulador, que conecta las llaves al puerto PA del PIO y a las luces al puerto PB.
+
+a) * Escribir un programa que encienda las luces con el patrón 11000011, o sea, solo las primeras y las
+últimas dos luces deben prenderse, y el resto deben apagarse.
+
+
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 2000H
+
+; CONFIGURAMOS CB ; EN CB PARA QUE SE APAGUE UNA LUZ DEBE SER 1 EN EL BIT
+MOV AL,00111100b
+OUT CB, AL  ; CB = 00111100b
+
+; CONFIGURAMOS PB ; EN PB PARA QUE SE APAGUE UNA LUZ DEBE SER 0 EN EL BIT
+MOV AL,11000011b
+OUT PB, AL  ; PB = 11000011b
+
+INT 0
+END  
+
+
+
+b) * Escribir un programa que verifique si la llave de más a la izquierda está prendida. Si es así, mostrar en
+pantalla el mensaje “Llave prendida”, y de lo contrario mostrar “Llave apagada”. Solo importa el valor
+de la llave de más a la izquierda (bit más significativo). Recordar que las llaves se manejan con las
+teclas 0-7.
+
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ1 DB "LLAVE PRENDIDA"
+FIN1 DB ?
+MSJ2 DB "LLAVE APAGADA"
+FIN2 DB ?
+
+ORG 2000H
+
+MOV AL,11111111b
+OUT CA,AL
+IN AL, PA
+AND AL,10000000b
+JZ THEN
+JMP ELSE
+THEN:MOV BX,OFFSET MSJ2
+ MOV AL,OFFSET FIN2 - OFFSET MSJ2
+ INT 7
+ JMP FIN
+ 
+ ELSE:MOV BX,OFFSET MSJ1
+  MOV AL, OFFSET FIN1 - OFFSET MSJ1
+  INT 7
+FIN:INT 0
+END  
+
+
+
+c) * Escribir un programa que permite encender y apagar las luces mediante las llaves. El programa no
+deberá terminar nunca, y continuamente revisar el estado de las llaves, y actualizar de forma
+consecuente el estado de las luces. La actualización se realiza simplemente prendiendo la luz i si la llave
+i correspondiente está encendida (valor 1), y apagándola en caso contrario. Por ejemplo, si solo la
+primera llave está encendida, entonces solo la primera luz se debe quedar encendida.
+
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 2000H
+
+MOV AL,11111111b
+OUT CA, AL
+
+MOV AL, 00000000b
+OUT CB, AL
+LOOP:IN AL, PA
+ OUT PB, AL
+ JMP LOOP
+END  
+
+
+
+d) * Escribir un programa que implemente un encendido y apagado sincronizado de las luces. Un contador,
+que inicializa en cero, se incrementa en uno una vez por segundo. Por cada incremento, se muestra a
+través de las luces, prendiendo solo aquellas luces donde el valor de las llaves es 1. Entonces, primero
+se enciende solo la luz de más a la derecha, correspondiente al patrón 00000001. Luego se continúa con
+los patrones 00000010, 00000011, y así sucesivamente. El programa termina al llegar al patrón
+11111111.
+
+
+PIC EQU 20H
+TIMER EQU 10H
+PIO EQU 30H
+N CLK EQU 10
+ORG 40
+IP CLK DW RUT CLK
+ORG 1000H
+PATRON DB 0
+FINAL DB 0
+
+
+ORG 2000H
+CLI 
+MOV AL, 0FDH
+OUT PIC+1, AL
+
+MOV AL, N_CLK
+
+OUT PIC+5, AL
+MOV AL, 1
+OUT TIMER+1, AL
+MOV AL, 0
+
+OUT PIO+3,AL
+OUT PIO+1,AL
+OUT TIMER, AL
+STI
+LAZO: CMP FINAL, 1
+JNZ LAZO
+HLT
+
+
+ORG 3000H
+RUT_CLK: INC PATRON
+CMP PATRON, OFFH
+JNZ LUCES
+MOV FINAL, 1
+MOV AL, 0FFH
+OUT PIC+1, AL
+JMP FIN
+LUCES: MOV AL,PATRON
+OUT PIO+1, AL
+MOV AL,0
+OUT TIMER, AL
+FIN: MOV AL, 20H
+OUT PIC, AL
+IRET
+END
+
+
+MI SOLUCION :
+
+;Escribir un programa que implemente un encendido y apagado
+;sincronizado de las luces. Un contador, que inicializa en cero, 
+;se incrementa en uno una vez por segundo. Por cada incremento,
+;se muestra a través de las luces, prendiendo solo aquellas luces
+;donde el valor de las llaves es 1. Entonces, primero se enciende
+;solo la luz de más a la derecha, correspondiente al patrón 
+;00000001. Luego se continúa con los patrones 00000010, 
+; 00000011, y así sucesivamente. El programa termina al llegar
+;al patrón 11111111.
+
+; TIMER
+CONT EQU 10H
+COMP EQU 11H
+;  PIC
+EOI EQU 20H
+IMR EQU 21H
+INT_1 EQU 25H
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+PATRON DB 0
+FINAL DB 0
+
+ORG 3000H
+RUT_CLK: INC PATRON
+CMP PATRON, 0FFH
+JNZ LUCES
+MOV FINAL, 1
+MOV AL, 0FFH
+OUT IMR, AL
+JMP FIN
+LUCES: MOV AL,PATRON
+OUT PB, AL
+MOV AL,0
+OUT CONT, AL
+FIN: MOV AL, 20H
+OUT EOI, AL
+IRET
+
+ORG 2000H
+; ELIJO ID DE INTERRUPCION 10
+MOV AX,RUT_CLK
+MOV BX,40
+MOV [BX],AX
+CLI 
+MOV AL, 0FDH
+OUT IMR, AL
+
+MOV AL, 10 
+OUT INT_1, AL
+
+MOV AL, 1
+OUT COMP, AL
+
+MOV AL, 0
+OUT CB,AL
+OUT PB,AL
+OUT CONT, AL
+STI
+
+LAZO: CMP FINAL, 1
+JNZ LAZO
+INT 0
+END
+
+
+e) Escribir un programa que encienda una luz a la vez, de las ocho conectadas al puerto paralelo del
+microprocesador a través de la PIO, en el siguiente orden de bits: 0-1-2-3-4-5-6-7-6-5-4-3-2-1-0-1-2-3-
+4-5-6-7-6-5-4-3-2-1-0-1-..., es decir, 00000001, 00000010, 00000100, etc. Cada luz debe estar
+encendida durante un segundo. El programa nunca termina. (FALTA TERMINAR)
+
+2) Uso de la impresora a través de la PIO. Ejecutar los programas en la configuración P1 C1 del simulador.
+En esta configuración, el puerto de datos de la impresora se conecta al puerto PB del PIO, y los bits de busy
+y strobe de la misma se conectan a los bits 0 y 1 respectivamente del puerto PA. Presionar F5 para mostrar la
+salida en papel. El papel se puede blanquear ingresando el comando BI.
+
+a) * Escribir un programa para imprimir la letra “A” utilizando la impresora a través de la PIO.
+
+
+;Ejecutar en configuración 1
+ORG 1000H; Memoria de datos
+char db "A"
+PA EQU 30h
+PB EQU 31h
+CA EQU 32h
+CB EQU 33h
+ORG 2000H;Prog principal
+
+mov al, 01h; ; strobe salida (0), busy entrada (1), resto en 0
+out CA,al
+mov al, 0 ;puerto de datos, todo salida
+out CB, al
+
+; inicializo strobe en 0
+in al, PA
+and al, 0FDh; 1111 1101b
+out PA,al
+; espero que busy=0
+poll: in al, PA
+and al,01h ;0000 0001b
+jnz poll
+; se que busy es 0, mandar carácter
+mov al, char
+out PB, al
+; mandar flanco ascendente de strobe
+in al, PA
+or al, 02h; 00000010b
+out PA,al
+INT 0
+END
+
+MI SOLUCION :
+
+;Uso de la impresora a través de la PIO. Ejecutar los programas en
+;la configuración P1 C1 del simulador. En esta configuración, el
+;puerto de datos de la impresora se conecta al puerto PB del PIO,
+;y los bits de busy y strobe de la misma se conectan a los bits 0
+;y 1 respectivamente del puerto PA. Presionar F5 para mostrar la
+;salida en papel. El papel se puede blanquear ingresando el 
+;comando BI.
+;a)Escribir un programa para imprimir la letra “A”
+;utilizando la impresora a través de la PIO.
+
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ DB " Amplitud"
+FIN DB  ?
+ORG 2000H
+;1.Configuramos PA a partir de CA // STROBE = 0 ; BUSY = 1
+MOV AL, 11111101b 
+OUT CA,AL
+
+;2.configuramos PB  a partir de CB // CB = todos de salida
+MOV AL,00000000b
+OUT CB,AL
+
+;Recorrer el msj
+MOV BX,OFFSET MSJ
+;3. consultaremos constantemente si esta libre la impresora, 
+;si el bit Busy = 0 (salida)
+POLL: IN AL,PA
+  AND AL,1
+  JNZ POLL;mientras la impresora no este libre,sigo consultando
+
+  ;4 cuando la impresora esta libre,mandamos el caracter a PB
+  MOV AL,[BX]
+  OUT PB,AL
+
+  ;5.Hasta que no mandemos el strobe en 1 no se va a imprimir
+  ;--Mando strobe en 1--
+  IN AL,PA ; tomamos el ESTADO
+  OR AL,2 ; fuerzo strobe a 1
+  OUT PA,AL
+
+  ;Despues de enviar el strobe en 1 ,debemos volver a ponerlo en 0
+  ;--Mando strobe en 0
+  IN AL,PA ; Tomamos el ESTADO
+  AND AL,0FDH ; fuerzp strobe en 0
+  OUT PA,AL
+
+  INC BX
+  CMP BX,OFFSET FIN
+  JNZ POLL
+INT 0
+END
+
+b) * Escribir un programa para imprimir el mensaje “ORGANIZACION Y ARQUITECTURA DE
+COMPUTADORAS” utilizando la impresora a través de la PIO.
+
+PIO EQU 30H
+ORG 1000H
+MSJ DB "ARQUITECTURA DE "
+    DB " COMPUTADORAS"
+FIN DB ?
+
+ORG 2000H
+MOV AL,0FDH
+OUT PIO+2, AL
+
+MOV AL, 0
+OUT PIO+3, AL
+
+IN AL, PIO
+AND AL, 0FDH
+OUT PIO, AL
+
+MOV BX, OFFSET MSJ
+MOV CL, OFFSET FIN - OFFSET MSJ
+
+POLL: IN AL, PIO
+AND AL, 1
+JNZ POLL
+
+MOV AL,[BX]
+OUT PIO+1, AL
+
+IN AL, PIO
+OR AL,02H
+OUT PIO, AL
+
+IN AL, PIO
+AND AL, 0FDH
+OUT PIO, AL
+
+INC BX
+DEC CL
+JNZ POLL
+INT 0
+
+END
+
+
+;Escribir un programa para imprimir el mensaje “ORGANIZACION Y ARQUITECTURA
+;DE COMPUTADORAS” utilizando la impresora a través de la PIO.
+
+;  PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ DB " ORGANIZACION Y ARQUITECTURA DE COMPUTADORAS"
+FIN DB ?
+
+ORG 2000H
+;1,configurar PA a partir de CA
+MOV AL,11111101b ; BIT DE STROBE EN 0(SALIDA) BIT DE BUSY =1(ENTRADA)
+OUT CA,AL
+
+;2.configurar PB a partir de CB (todos de salida)
+MOV AL,0
+OUT CB,AL
+;Recorrer string o mensaje
+MOV BX,OFFSET MSJ
+MOV CL, OFFSET FIN- OFFSET MSJ
+
+;---DEL PUNTO 3 AL 6 DEBEMOS REPETIRLO PARA CADA CARACTER---
+;3.consultar si la impresora esta libre, si BIT BUSY = 0
+POLL: IN AL,PA
+  AND AL,1
+  JNZ POLL
+  ;4.Cuando la impresora esta libre, le mandamos el caracter a PB(DATO)
+  MOV AL,[BX]
+  OUT PB,AL
+  
+  ;5.hasta que no mandemos el STROBE en 1, no se va a imprimir
+  ;--Mando Strobe en 1--
+  IN AL,PA ; tomamos el ESTADO
+  OR AL,2 ; fuerzo strobe a 1
+  OUT PA,AL
+  
+  ;6.despues de enviar el strobe en 1,debemos volver a ponerlo en 0
+  ;--Mando strobe en 0--
+  IN AL,PA ; Tomamos el ESTADO
+  AND AL,0FDH ; fuerzo strobe en 0
+  OUT PA,AL
+  
+  ;Seguimos recorriendo el mensaje hasta que llegue a FIN
+  INC BX
+  DEC CL
+  JNZ POLL
+ 
+INT 0
+END
+
+
+c) * Escribir un programa que solicita el ingreso de cinco caracteres por teclado y los envía de a uno por
+vez a la impresora a través de la PIO a medida que se van ingresando. No es necesario mostrar los
+caracteres en la pantalla.
+
+;Escribir un programa que solicita el ingreso de cinco caracteres por
+;teclado y los envía de a uno por vez a la impresora a través de la PIO 
+;a medida que se van ingresando. No es necesario mostrar los caracteres
+;en la pantalla.
+
+;   PIO
+PA EQU 30H
+PB EQU 31H
+CA EQU 32H
+CB EQU 33H
+
+ORG 1000H
+MSJ DB "INGRESE UN CARACTER"
+FIN DB ?
+ORG 1500H
+CARACTER DB ?
+
+ORG 3000H
+IMPRIME_MSJ: MOV BX,OFFSET MSJ
+MOV AL,OFFSET FIN - OFFSET MSJ
+INT 7
+RET
+
+ORG 2000H
+
+;configurar CA para PA
+MOV AL,11111101b  ; BIT STROBE= 0 (SALIDA); BIT BUSY =1 (ENTRADA)
+OUT CA,AL
+
+;configurar CB para PB
+MOV AL,0 
+OUT CB,AL  ; CB = todos de salida
+
+CALL IMPRIME_MSJ
+MOV CL,6
+MOV BX,OFFSET CARACTER
+
+;---DEL PUNTO 3 AL 6 DEBEMOS REPETIRLO PARA CADA CARACTER---
+;3.consultar si la impresora esta libre, si BIT BUSY = 0
+POLL: IN AL,PA
+  AND AL,1
+  JNZ POLL
+  ;4.Cuando la impresora esta libre, le mandamos el caracter a PB(DATO)
+  MOV AL,[BX]
+  OUT PB,AL
+  
+  ;5.hasta que no mandemos el STROBE en 1, no se va a imprimir
+  ;--Mando Strobe en 1--
+  IN AL,PA ; tomamos el ESTADO
+  OR AL,2 ; fuerzo strobe a 1
+  OUT PA,AL
+  
+  ;6.despues de enviar el strobe en 1,debemos volver a ponerlo en 0
+  ;--Mando strobe en 0--
+  IN AL,PA ; Tomamos el ESTADO
+  AND AL,0FDH ; fuerzo strobe en 0
+  OUT PA,AL
+  
+  ;Seguimos recorriendo el msj hasta que lea 5 caracteres
+  INC BX
+  ;INT 6
+  DEC CL
+  JNZ SALTO
+  JMP CHAU
+  SALTO: INT 6
+  JMP POLL
+
+CHAU:INT 0
+END
+
+
+d) * Escribir un programa que solicite ingresar caracteres por teclado y que recién al presionar la tecla F10
+los envíe a la impresora a través de la PIO. No es necesario mostrar los caracteres en la pantalla. 
+
+
+Ejercicio 2d
+EOI EQU 20h
+IMR EQU 21h
+INT0 EQU 24h
+IDINT0 EQU 10
+PA EQU 30h
+PB EQU 31h
+CA EQU 32h
+CB EQU 33h
+ORG 1000H
+
+flag db 0
+longitud db 0
+cadena db ?
+org 40
+dir_rut dw rut_f10
+org 3000h
+; cancelar interrupciones futuras
+rut_f10: mov al,0FFH
+out IMR, al
+;indicamos al programa que no lea más
+mov flag,1
+mov al,24h
+out EOI, al
+iret
+
+ORG 2000H
+cli
+; INICIALIZACION PIO PARA IMPRESORA
+MOV AL, 0FDH
+OUT CA, AL
+MOV AL, 0
+OUT CB, AL
+IN AL, PA
+AND AL, 0FDH
+OUT PA, AL
+;Inicialización del PIC
+mov al,0FEh; FE = 1111 1110
+out IMR,al
+mov al,IDINT0
+out INT0, al
+sti
+; Lectura de cadena
+MOV BX, OFFSET cadena
+loop: int 6 ;leer char
+inc bx
+inc longitud
+cmp flag,0 ; verifico si presionaron f10
+jz loop
+; Impresión de los caracteres leídos
+MOV BX, OFFSET cadena ;reiniciar puntero al comienzo
+POLL: nop
+IN AL, PA
+AND AL, 1
+JNZ POLL
+; Enviar carácter
+MOV AL, [BX]
+OUT PB, AL
+; Pulso STROBE
+IN AL, PA
+OR AL, 02H
+OUT PA, AL
+; Reiniciar STROBE
+IN AL, PA
+AND AL, 0FDH
+OUT PA, AL
+; pasar al siguiente char
+INC BX
+DEC longitud
+JNZ POLL
+INT 0
+END
+
+
+MI SOLUCION :
+
+;Escribir un programa que solicite ingresar caracteres por teclado y que
+;recién al presionar la tecla F10 los envíe a la impresora a través de la
+;PIO. No es necesario mostrar los caracteres en la pantalla. 
+
+;  PIC
+EOI EQU 20h
+IMR EQU 21h
+INT_0 EQU 24h
+;IDINT0 EQU 10
+
+;  PIO
+PA EQU 30h
+PB EQU 31h
+CA EQU 32h
+CB EQU 33h
+
+ORG 1000H
+FLAG db 0
+LONGITUD db 0
+CADENA db ?
+;org 40
+;dir_rut dw rut_f10
+
+ORG 3000H  ; cancelar interrupciones futuras
+RUT_F10: MOV AL,0FFH
+OUT IMR, AL
+;indicamos al programa que no lea más
+MOV FLAG,1
+MOV AL,20H ; NO ES 20H?
+OUT EOI, AL
+IRET
+
+ORG 2000H
+;ELIJO EL ID =10
+MOV AX,RUT_F10
+MOV BX,40
+MOV [BX],AX
+CLI
+; INICIALIZACION PIO PARA IMPRESORA
+MOV AL, 0FDH
+OUT CA, AL
+MOV AL, 0
+OUT CB, AL
+IN AL, PA
+AND AL, 0FDH
+OUT PA, AL
+;Inicialización del PIC
+MOV AL,0FEH; FE = 1111 1110
+OUT IMR,AL
+MOV AL,10
+OUT INT_0, AL
+STI
+
+; Lectura de cadena
+MOV BX, OFFSET CADENA
+LOOP: INT 6 ;leer char
+INC BX
+INC LONGITUD
+CMP FLAG,0 ; verifico si presionaron f10
+JZ LOOP
+; Impresión de los caracteres leídos
+MOV BX, OFFSET CADENA ;reiniciar puntero al comienzo
+POLL: NOP
+  IN AL, PA
+  AND AL, 1
+  JNZ POLL
+  ; Enviar carácter
+  MOV AL, [BX]
+  OUT PB, AL
+  ; Pulso STROBE
+  IN AL, PA
+  OR AL, 02H
+  OUT PA, AL
+  ; Reiniciar STROBE
+  IN AL, PA
+  AND AL, 0FDH
+  OUT PA, AL
+  ; pasar al siguiente char
+  INC BX
+  DEC LONGITUD
+  JNZ POLL
+INT 0
+END
+
+
+3) Uso de la impresora a través del HAND-SHAKE. Ejecutar los programas en configuración P1 C2.
+a) * Escribir un programa que imprime “INGENIERIA E INFORMATICA” en la impresora a través del
+HAND-SHAKE. La comunicación se establece por consulta de estado (polling). ¿Qué diferencias
+encuentra con el ejercicio 2b?
+
+HAND EQU 40H
+
+ORG 1000H
+MSJ DB "INGENIERIA E"
+    DB "INFORMATICA"
+FIN DB  ?
+
+ORG 2000H
+IN AL, HAND+1
+AND AL, 7FH
+OUT HAND+1, AL
+
+MOV BX, OFFSET MSJ
+MOV CL, OFFSET FIN - OFFSET MSJ
+
+POLL: IN AL, HAND+1
+AND AL, 1
+JNZ POLL
+
+MOV AL,[BX]
+OUT HAND, AL
+
+INC BX
+DEC DL
+JNZ POLL
+INT 0
+
+END
+
+
+MI SOLUCION:
+
+
+HAND_DATO   EQU 40H
+HAND_ESTADO EQU 41H
+
+ORG 1000H
+MSJ DB "INGENIERIA E INFORMATICA"
+FIN DB  ?
+
+ORG 2000H
+
+MOV BX ,OFFSET MSJ
+MOV CL,OFFSET FIN - OFFSET MSJ ; CL = cantidad de caracteres del msj 
+;1.Configurar el BIT de Interrupciones (41H ESTADO)
+IN AL,HAND_ESTADO
+AND AL,7FH ;bit de int en 0 para que el handshake trabaje x cons de estado,sin alterar los demas bits
+OUT HAND_ESTADO,AL
+
+;2.Consultar constantemente si la impresora esta libre, si bit BUSY = 0
+POLL: IN AL,HAND_ESTADO
+  AND AL,1
+  JNZ POLL
+  
+  ;3.cuando la impresora este libre mandamos el caracter a DATO(40H)
+  MOV AL,[BX]
+  OUT HAND_DATO,AL
+  
+  ;Sigo recorriendo el msj
+  INC BX
+  DEC CL
+  JNZ POLL
+INT 0
+END
+
+b) ¿Cuál es la ventaja en utilizar el HAND-SHAKE con respecto al PIO para comunicarse con la
+impresora? Sacando eso de lado, ¿Qué ventajas tiene el PIO, en general, con respecto al HANDSHAKE?
+
+Rta  : la ventaja del Handshake es que se puede trabajar x interrupcion y eso hace que mi programa este ejecutando otras aplicaciones mientras espera a la impresora a que me interrumpa cuando pide solicitar un dato a imprimir
+.El pio es trabajar manualmente con los datos ya sea manejar el strobe o esperar a que el bit de busy este en 0 para imprimir (polling) 
+
+c) * Escribir un programa que imprime “UNIVERSIDAD NACIONAL DE LA PLATA” en la impresora a
+través del HAND-SHAKE. La comunicación se establece por interrupciones emitidas desde el HANDSHAKE cada vez que la impresora se desocupa.
+
+
+PIC EQU 20H
+HAND EQU 40H
+N_HND EQU 10
+
+ORG 40
+IP_HND DW RUT_HND
+
+ORG 1000H
+MSJ DB "UNIVERSIDAD"
+    DB "NACIONAL DE LA PLATA"
+FIN DB ?
+
+ORG 3000H
+RUT_HN:PUSH AX
+MOV AL, [BX]
+OUT HAND, AL
+INC BX
+DEC CL
+MOV AL, 20H
+OUT PIC,AL
+POP AX
+IRET
+
+ORG 2000H
+
+MOV BX, OFFSET MSJ
+MOV CL, OFFSET FIN - OFSSET MSJ
+
+CLI
+MOV AL,0FBH
+OUT PIC+1, AL
+MOV AL, N_HND
+OUT PIC+6, AL
+MOV AL,80H
+OUT HAND+1, AL
+STI
+
+LAZO: CMP CL, 0
+JNZ LAZO
+IN AL, HAND+1
+AND AL, 7FH
+OUT HAND+1, AL
+INT 0
+END
+
+MI SOLUCION:
+
+;Escribir un programa que imprime “UNIVERSIDAD NACIONAL DE LA PLATA” en
+;la impresora a través del HAND-SHAKE. La comunicación se establece por
+;interrupciones emitidas desde el HANDSHAKE cada vez que la impresora se 
+;desocupa.
+
+;  PIC
+EOI   EQU 20H
+IMR   EQU 21H
+INT_2 EQU 26H
+
+;  HANDSHAKE
+HAND_DATO   EQU 40H
+HAND_ESTADO EQU 41H
+
+ORG 3000H
+SUB_HANDSHAKE: NOP
+  ;3.Cuando la impresora nos interrumpa mandamos el caracter a DATO(40H)
+  MOV AL,[BX]
+  OUT HAND_DATO,AL
+  
+  ;Seguimos recorriendo el Msj pero en la subrutina de Interrrupcion
+  INC BX
+  DEC CL
+  
+  MOV AL, 20H
+  OUT EOI,AL
+IRET
+
+
+ORG 1500H
+MSJ DB "UNIVERSIDAD"
+FIN DB ?
+
+ORG 2000H
+MOV BX,OFFSET MSJ
+MOV CL, OFFSET FIN - OFFSET MSJ
+;--Activo Handshake por Interrupcion--
+;1.Debemos configurar el BIT de interrupcion 
+IN AL,HAND_ESTADO
+OR AL,80H
+OUT HAND_ESTADO,AL
+
+;2 YA NO CONSULTAREMOS SI LA IMPRESORA ESTA LIBRE
+
+;PASOS PARA EL PIC (P)
+;2P. Elijo el ID 15
+;3P.Poner la dir de la subrutina en el vector de interrupciones
+PUSH BX  ; GUARDO EL VALOR DE BX(DONDE ESTA MI MSJ)
+MOV AX,SUB_HANDSHAKE
+MOV BX,60 ; 60 = 15*4
+MOV [BX],AX
+POP BX ; DEVUELVO EL VALOR
+
+;4P. Configurar el PIC
+CLI
+  ;a. Poner el ID en el PIC para la interrupcion del Handshake
+  MOV AL,15
+  OUT INT_2,AL
+  
+  ;b.Desenmascarar la interrupcion
+  MOV AL,11111011b
+  OUT IMR,AL
+STI
+
+LAZO: CMP CL,0
+  JNZ LAZO
+  
+;--Desactivo Handshake por interrupcion--
+IN AL,HAND_ESTADO
+AND AL,07FH
+OUT HAND_ESTADO,AL
+INT 0
+END
+
+d) Escribir un programa que solicite el ingreso de cinco caracteres por teclado y los almacene en memoria.
+Una vez ingresados, que los envíe a la impresora a través del HAND-SHAKE, en primer lugar tal cual
+fueron ingresados y a continuación en sentido inverso. Utilizar el HAND-SHAKE en modo consulta de
+estado. ¿Qué diferencias encuentra con el ejercicio 2c?
+(FALTA HACER)
+
+
+e) Idem d), pero ahora utilizar el HAND-SHAKE en modo interrupciones.
+(FALTA HACER)
+
+4) Uso de la impresora a través del dispositivo USART por consulta de estado. Ejecutar en configuración
+P1 C4 y utilizar el comando PI que corresponda en cada caso (ver uso de Comando PI en el simulador).
+a) * Escribir un programa que imprima el carácter "A" en la impresora a través de la USART usando el
+protocolo DTR . La comunicación es por consulta de estado.
+b) * Escribir un programa que imprima la cadena "USART DTR POLLING" en la impresora a través de
+la USART usando el protocolo DTR . La comunicación es por consulta de estado.
+c) * Escribir un programa que imprima la cadena "USART XON/XOFF POLLING" en la impresora a
+través de la USART usando el protocolo XON/XOFF realizando la comunicación entre CPU y USART
+por consulta de estado
+
+
+Anexo DMA
+Objetivos: Comprender el funcionamiento del Controlador de Acceso Directo a Memoria (CDMA) incluido en el
+simulador MSX88. Configurarlo para la transferencia de datos memoria-memoria y memoria-periférico en modo bloque y
+bajo demanda. Escribir programas en el lenguaje assembly del simulador MSX88. Ejecutarlos y verificar los resultados,
+analizando el flujo de información entre los distintos componentes del sistema
+1- DMA. Transferencia de datos memoria-memoria.
+Programa que copia una cadena de caracteres almacenada a partir de la dirección 1000H en otra parte de la
+memoria, utilizando el CDMA en modo de transferencia por bloque. La cadena original se debe mostrar en la
+pantalla de comandos antes de la transferencia. Una vez finalizada, se debe visualizar en la pantalla la cadena
+copiada para verificar el resultado de la operación. Ejecutar el programa en la configuración P1 C3. 
+
+Cuestionario:
+a) Analizar minuciosamente cada línea del programa anterior.
+b) Explicar qué función cumple cada registro del CDMA e indicar su dirección.
+c) Describir el significado de los bits del registro CTRL.
+d) ¿Qué diferencia hay entre transferencia de datos por bloque y bajo demanda?
+e) ¿Cómo se le indica al CDMA desde el programa que debe arrancar la transferencia de datos?
+f) ¿Qué le indica el CDMA a la CPU a través de la línea hrq? ¿Qué significa la respuesta que le envía la
+CPU a través de la línea hlda?
+g) Explicar detalladamente cada paso de la operación de transferencia de un byte desde una celda a otra de
+la memoria. Verificar que en esta operación intervienen el bus de direcciones, el bus de datos y las
+líneas mrd y mwr.
+h) ¿Qué sucede con los registros RF, CONT y RD del CDMA después de transferido un byte?
+i) ¿Qué evento hace que el CDMA emita una interrupción y a través de qué línea de control lo hace?
+j) ¿Cómo se configura el PIC para atender la interrupción del CDMA?
+k) ¿Qué hace la rutina de interrupción del CDMA del programa anterior?
+
+2- DMA. Transferencia de datos memoria-periférico.
+Programa que transfiere datos desde la memoria hacia la impresora sin intervención de la CPU, utilizando el
+CDMA en modo de transferencia bajo demanda
+
+Cuestionario:
+a) Analizar minuciosamente cada línea del programa anterior.
+b) ¿Qué debe suceder para que el HAND-SHAKE emita una interrupción al CDMA?
+c) ¿Cómo demanda el periférico, en este caso el HAND-SHAKE, la transferencia de datos desde
+memoria? ¿A través de qué líneas se comunican con el CDMA ante cada pedido?
+d) Explicar detalladamente cada paso de la operación de transferencia de un byte desde una celda de
+memoria hacia el HAND-SHAKE y la impresora.
+e) ¿Qué evento hace que el CDMA emita una interrupción al PIC?
+f) ¿Cuándo finaliza la ejecución del LAZO?
+
+3. * Configuración del CDMA. Indique cómo configurar el registro Control del CDMA para las siguientes
+transferencias:
+a) Transferencia Memoria → Memoria, por robo de ciclo
+b) Transferencia Periférico → Memoria, por ráfagas
+c) Transferencia Memoria → Periférico, por robo de ciclo
+
+
+Ejercicio 3a
+Al ser memoria memoria, el bit TT=1. Al ser por robo de ciclo MT=0. Como queremos que se realice, STOP=0. Entonces
+el byte de configuración debe ser XXXX0X10
+El carácter X indica que el valor no importa. El bit ST no importa porque es transferencia memoria memoria.
+Ejercicio 3b
+Al ser entre un Periférico y Memoria, el bit TT=0. Al ser Periférico → Memoria, el bit ST=0 Al ser por ráfagas, MT=1.
+Como queremos que se realice, STOP=0. Entonces el byte de configuración debe ser XXXX1000
+El carácter X indica que el valor no importa.
+Ejercicio 3c
+Al ser entre un Periférico y Memoria, el bit TT=0. Al ser Memoria → Periférico, el bit ST=1 Al ser por robo de ciclo,
+MT=0. Como queremos que se realice, STOP=0. Entonces el byte de configuración debe ser XXXX0100
+El carácter X indica que el valor no importa.
